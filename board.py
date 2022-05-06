@@ -130,12 +130,9 @@ class Board:
             self.noble_cards_on_board.append(noble_cards.pop())
 
         for _ in range(4):
-            self.cards_3_on_board.append(cards_3[-1])
-            cards_3.pop()
-            self.cards_2_on_board.append(cards_2[-1])
-            cards_2.pop()
-            self.cards_1_on_board.append(cards_1[-1])
-            cards_1.pop()
+            self.cards_3_on_board.append(cards_3.pop())
+            self.cards_2_on_board.append(cards_2.pop())
+            self.cards_1_on_board.append(cards_1.pop())
 
         self.reset()
 

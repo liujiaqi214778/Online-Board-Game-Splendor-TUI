@@ -1,8 +1,10 @@
 # 2022/5/4  12:33  liujiaqi
+import time
 
 from board import ClearCLI
 from sockutils import *
 from utils import iterprint
+from event import Event
 
 
 class Lobby:
@@ -10,6 +12,7 @@ class Lobby:
         self.socket = sock
         self.username = name
         self.width = 90
+        self.fps = 30
         self.lobby_instructions = {
             'help': self.showlobbyhelp,
             'join': self.joingroup,
@@ -26,20 +29,35 @@ class Lobby:
 
     def __call__(self):
         print('Type [help] for more instructions...')
+        event = Event()
+        event.start()
+        t = 1 / self.fps
         while True:
-            info = input()
-            info = info.split()
-            if len(info) == 0:
-                continue
-            ins = info.pop(0)
-            args = tuple(info)
-            if ins not in self.lobby_instructions:
-                print('Error... [{}] is not exist.'.format(ins))
-                self.lobby_instructions['help']()
-                continue
-            ret = self.lobby_instructions[ins](*args)
-            if ret is not None and ret < 0:
-                return ret
+            if isDead():
+                return -1
+            time.sleep(t)
+            # info = input()
+            info = event.get()  # event线程接收标准输入的指令
+            if info is not None:
+                info = info.split()
+                if len(info) == 0:
+                    continue
+                ins = info.pop(0)
+                args = tuple(info)
+                if ins not in self.lobby_instructions:
+                    print('Error... [{}] is not exist.'.format(ins))
+                    self.lobby_instructions['help']()
+                    continue
+                ret = self.lobby_instructions[ins](*args)
+                if ret is not None and ret < 0:
+                    return ret
+
+            msg = active_msg_reciever.read()
+            if msg is not None:
+                if msg == "close":
+                    return -1
+                if msg.startswith('game'):
+                    self.game()
 
     @classmethod
     def showlobbyhelp(cls, *args):
@@ -74,15 +92,13 @@ class Lobby:
             return -2
         if len(msglist) == 0:
             print("You haven't joined any group yet.")
-        if len(msglist) > 1:
-            self._showginfo(msglist)
-            return
+        ClearCLI()
+        self.groupinfo()
         msg = msglist[0]
         print(msg)
-        self.game(msg)
 
     def game(self, *args):
-        pass
+        print('start game....')
 
     def _showginfo(self, msglist):
         gid = msglist.pop()
@@ -107,6 +123,7 @@ class Lobby:
         if msg == 'close':
             return -1
         self.refresh()
+        self.groupinfo()
         print(msg)
         return 0
 

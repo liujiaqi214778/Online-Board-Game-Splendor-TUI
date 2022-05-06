@@ -72,6 +72,7 @@ class GroupInfo:
         return True
 
     def game(self):
+        # 先给所有玩家发送 active msg
         pass
 
     def __len__(self):
@@ -235,8 +236,10 @@ def read(sock, timeout=None):
 # A function to message the server, this is used instead of socket.send()
 # beacause it buffers the message, handles packet loss and does not raise
 # exception if message could not be sent
-def write(sock, msg):
+def write(sock, msg, prefix=False):
     if msg:
+        if prefix:
+            msg = '@#@' + msg
         buffedmsg = msg + (" " * (128 - len(msg)))
         try:
             sock.sendall(buffedmsg.encode("utf-8"))
@@ -261,6 +264,7 @@ class Client:
     def __init__(self, sock, name):
         self.socket = sock
         self.name = name
+        self.active_msg_prefix = '@#@'
         self.funcs = {
             'pStat': self.pStat,
             'gStat': self.gStat,
@@ -364,13 +368,13 @@ class Client:
         if p.stat != 'r':
             p.stat = 'r'
             g = groups[p.gid]
-            if g.ifstart():
-                write(self.socket, 'All players ready, start game.')
-                return g.game()
             write(self.socket, f'Player {self.name} ready.')
+            if g.ifstart():
+                # write(self.socket, 'game', True)
+                return g.game()
             return
         p.stat = 'b'
-        self.ginfo(p.gid)
+        write(self.socket, f'Undo ready.')
 
 
 # A thread to log all the texts. Flush from logQ.
@@ -543,20 +547,21 @@ def initPlayerThread(sock):
         if not judge_name(name):
             log("Client sent invalid user name (length > 15 or already exist), closing connection.")
             write(sock, "errName")
-        totalsuccess += 1
-        # key = genKey()
-        log(f"Connection Successful, user name - {name}")
+        else:
+            totalsuccess += 1
+            # key = genKey()
+            log(f"Connection Successful, user name - {name}")
 
-        write(sock, "succ")
-        Client(sock, name)()
-        write(sock, "close")
-        log(f"Player {name} has Quit")
+            write(sock, "succ")
+            Client(sock, name)()
+            write(sock, "close")
+            log(f"Player {name} has Quit")
 
-        try:
-            clearplayerinfo(name, players, groups)
-        except:
-            pass
-        # players.rmbusy(name)
+            try:
+                clearplayerinfo(name, players, groups)
+            except:
+                pass
+            # players.rmbusy(name)
     sock.close()
 
 

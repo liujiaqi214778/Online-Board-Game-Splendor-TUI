@@ -75,7 +75,10 @@ def main(addr, uname, ipv6=False):
 
 
 if __name__ == '__main__':
-    ip = input("Please enter the server ip address: ")
-    name = input("Please enter your username: ")
+    # ip = input("Please enter the server ip address: ")
+    # name = input("Please enter your username: ")
+    # ip = '192.168.31.58'
+    ip = '172.30.130.36'
+    name = 'liujiaqi'
     main(ip, name)
 

@@ -8,7 +8,8 @@ import queue
 import socket
 
 q = queue.Queue()
-isdead = True
+active_msg_q = queue.Queue()  # server 主动发来的消息
+isdead = False
 
 
 # Define a background thread that continuously runs and gets messages from
@@ -19,17 +20,31 @@ def bgThread(sock):
     while True:
         try:
             msg = sock.recv(128).decode("utf-8").strip()
-
-        except:
+        except Exception as e:
+            print(repr(e))
             break
-
         if not msg or msg == "close":
             break
-
-        if msg != "........":
+        if msg.startswith('@#@'):  # prefix of server's active message
+            active_msg_q.put(msg[3:])
+        elif msg != "........":
             q.put(msg)
     isdead = True
 
+
+class ActiveMsgReciever:
+    def __init__(self, que):
+        self.queue = que
+
+    def read(self):
+        try:
+            out = self.queue.get_nowait()
+        except:
+            return None
+        return out
+
+
+active_msg_reciever = ActiveMsgReciever(active_msg_q)
 
 # Returns wether background thread is dead and IO buffer is empty.
 def isDead():
