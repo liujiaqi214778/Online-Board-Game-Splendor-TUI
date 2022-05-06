@@ -10,7 +10,7 @@ IMPORTANT NOTE:
 """
 
 import queue
-import random
+# import random
 import socket
 import threading
 import time
@@ -37,7 +37,7 @@ class PlayerInfo:
         self.socket = sock
         self.name = name
         self.gid = gid
-        # a: activate, b: busy, r: ready
+        # a: active, b: busy, r: ready
         self.stat = 'a'
 
 
@@ -51,12 +51,14 @@ class GroupInfo:
     def push(self, p):
         if p.name not in self.players and not self.isfull():
             p.gid = self.gid
+            p.stat = 'b'  # 进组自动busy
             self.players[p.name] = p
 
     def pop(self, name):
         p = self.players.pop(name, None)
         if p is not None:
             p.gid = None
+            p.stat = 'a'  # 退组自动active
 
     def isfull(self):
         return len(self.players) == self.MaxN
@@ -81,7 +83,6 @@ class Players:
 
     def __init__(self):
         self.players = {}
-        self.busyplayers = set()
 
     def push(self, name, sock):
         if name not in self.players:
@@ -99,24 +100,27 @@ class Players:
         return len(self.players) == self.MaxN
 
     def isbusy(self, name):
-        '''
         p = self[name]
         if p is None:
             return False
-        return p.gid != 'a'
-        '''
-        return name in self.busyplayers
+        return p.stat != 'a'
 
-    def mkbusy(self, *names):
-        for name in names:
-            if name in self.players:
-                # self.players[name].stat = 'b'
-                self.busyplayers.add(name)
+    def busyn(self):
+        cnt = 0
+        for p in self.players.values():
+            if p.stat != 'a':
+                cnt += 1
+        return cnt
 
-    def rmbusy(self, *names):
-        for name in names:
-            # stat = 'a'
-            self.busyplayers.discard(name)
+    '''def mkbusy(self, name):
+        self._set_stat(name, 'b')
+
+    def rmbusy(self, name):
+        self._set_stat(name, 'a')
+
+    def _set_stat(self, name, stat):
+        if name in self.players:
+            self.players[name].stat = stat'''
 
     def __len__(self):
         return len(self.players)
@@ -148,6 +152,13 @@ logQ = queue.Queue()
 players = Players()
 groups = Groups()
 total = totalsuccess = 0
+
+
+def clearplayerinfo(name, pall, gall):
+    gid = pall[name].gid
+    if gid is not None:
+        gall[gid].pop(name)
+    pall.pop(name)
 
 
 def makeint(v):
@@ -309,7 +320,7 @@ class Client:
                 write(self.socket, "Do nothing...")
             else:
                 groups[pgid].pop(self.name)
-                players.rmbusy(self.name)
+                # players.rmbusy(self.name)
                 log(f"quit group {pgid}", self.name)
                 write(self.socket, f'Quit group {pgid}.')
         else:
@@ -320,7 +331,7 @@ class Client:
                 if p.gid is not None:
                     groups[p.gid].pop(self.name)
                 tinfo.push(p)
-                players.mkbusy(self.name)
+                # players.mkbusy(self.name)
                 log(f"Successfully joined group {gid}", self.name)
                 write(self.socket, f'Successfully joined group {gid}')
 
@@ -409,21 +420,22 @@ def kickDisconnectedThread():
             if ret == 0:
                 log(f"Player {p.name} got disconnected, removing from player list")
                 try:
-                    players.pop(p.name)
+                    # players.pop(p.name)
+                    clearplayerinfo(p.name, players, groups)
                 except:
                     pass
 
 
 # This is a Thread that runs in background to collect user input commands
 def adminThread():
-    global end, lock, players
+    global end, lock, players, groups
     while True:
         msg = input().strip()
         log(msg, adminput=True)
 
         if msg == "report":
             log(f"{len(players)} players are online right now,")
-            log(f"{len(players) - len(players.busyplayers)} are active.")
+            log(f"{len(players) - players.busyn()} are active.")
             log(f"{total} connections attempted, {totalsuccess} were successful")
             log(f"Server is running {threading.active_count()} threads.")
             log(f"Time elapsed since last reboot: {getTime()}")
@@ -472,13 +484,14 @@ def adminThread():
             for p in players.players.values():
                 write(p.socket, "close")
             players = Players()
+            groups = Groups()
 
         elif msg == "quit":
             lock = True
             log("Attempting to kick everyone.")
             for p in players.players.values():
                 write(p.socket, "close")
-            players = Players()
+            # players = Players()
 
             log("Exiting application - Bye")
             log(None)
@@ -540,13 +553,10 @@ def initPlayerThread(sock):
         log(f"Player {name} has Quit")
 
         try:
-            gid = players[name].gid
-            if gid is not None:
-                groups[gid].pop(name)
-            players.pop(name)
+            clearplayerinfo(name, players, groups)
         except:
             pass
-        players.rmbusy(name)
+        # players.rmbusy(name)
     sock.close()
 
 
