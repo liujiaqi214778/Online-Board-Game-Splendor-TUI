@@ -10,11 +10,12 @@ IMPORTANT NOTE:
 """
 
 import queue
-# import random
+import random
 import socket
 import threading
 import time
 from urllib.request import urlopen
+from board import Board
 
 # These are constants that can be modified by users. Default settings
 # are given. Do not change if you do not know what you are doing.
@@ -30,6 +31,91 @@ VERSION = "v1.0"
 PORT = 26103
 START_TIME = time.perf_counter()
 LOGFILENAME = time.asctime().replace(" ", "_").replace(":", "-")
+
+
+def makeint(v):
+    try:
+        t = int(v)
+    except:
+        t = None
+    return t
+
+
+# A function to display elapsed time in desired format.
+def getTime():
+    sec = round(time.perf_counter() - START_TIME)
+    minutes, sec = divmod(sec, 60)
+    hours, minutes = divmod(minutes, 60)
+    days, hours = divmod(hours, 24)
+    return f"{days} days, {hours} hours, {minutes} minutes, {sec} seconds"
+
+
+# A function to get IP address. It can give public IP or private.
+def getIp(public):
+    if public:
+        try:
+            ip = urlopen("https://api64.ipify.org").read().decode()
+        except:
+            ip = "127.0.0.1"
+
+    else:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            try:
+                s.connect(('10.255.255.255', 1))
+                ip = s.getsockname()[0]
+            except:
+                ip = '127.0.0.1'
+    return ip
+
+
+# A function to Log/Print text. Used instead of print()
+def log(data, key=None, adminput=False):
+    global logQ
+    if adminput:
+        text = ""
+    elif key is None:
+        text = "SERVER: "
+    else:
+        text = f"Player {key}: "
+
+    if data is not None:
+        text += data
+        if not adminput:
+            print(text)
+
+        if LOG:
+            logQ.put(time.asctime() + ": " + text + "\n")
+    else:
+        logQ.put(None)
+
+
+# Used instead of sock.recv(), because it returns the decoded message, handles
+# TCP packet loss, timeout and other useful stuff
+def read(sock, timeout=None):
+    try:
+        sock.settimeout(timeout)
+        msg = sock.recv(128).decode("utf-8").strip()
+
+    except:
+        msg = "quit"
+
+    if msg:
+        return msg
+    return "quit"
+
+
+# A function to message the server, this is used instead of socket.send()
+# beacause it buffers the message, handles packet loss and does not raise
+# exception if message could not be sent
+def write(sock, msg, prefix=False):
+    if msg:
+        if prefix:
+            msg = '@#@' + msg
+        buffedmsg = msg + (" " * (128 - len(msg)))
+        try:
+            sock.sendall(buffedmsg.encode("utf-8"))
+        except:
+            pass
 
 
 class PlayerInfo:
@@ -72,8 +158,64 @@ class GroupInfo:
         return True
 
     def game(self):
+        # game() 和其他函数可能由不同线程执行，考虑下self.players操作的线程安全
         # 先给所有玩家发送 active msg
+        names = []
+        for p in self.players.values():
+            names.append(p.name)
+            write(p.socket, 'game', True)
+        random.shuffle(names)
+        num = len(names)
+        board = self._init_game(names)
+        while True:
+            self._send_board_to_clients(board)
+            if num < 2:
+                # 发送中途结束消息
+                return
+            for i, n in enumerate(names):
+                if n is None:
+                    continue
+                p = self.players[n]
+                if p is None:  # 中途有玩家退出
+                    names[i] = None
+                action = self._read_action(p.socket, p.name)
+                if action is None:
+                    return
+                if self._game_move(board, action) != 0:
+                    return
+
+    def _read_action(self, sock, name):
+        msg = read(sock)
+        # ... timer
+        action = msg
+        return action
+
+    def _game_move(self, board, action):
+        board(action)
+        self._send_board_to_clients(board)
+        if self._game_end(board):
+            self.__send_end_info_to_clients(board)
+            return 1
+        return 0
+
+    def _game_end(self, board):
+        # ...
+        ret = []
+        return ret
+
+    def _init_game(self, names):
+        cards = self._load_cards()
+        board = Board(names, *cards)
+        return board
+
+    def _send_board_to_clients(self, board):
         pass
+
+    def __send_end_info_to_clients(self, board):
+        pass
+
+    def _load_cards(self):
+        return tuple([[],[],[],[]])
 
     def __len__(self):
         return len(self.players)
@@ -162,109 +304,10 @@ def clearplayerinfo(name, pall, gall):
     pall.pop(name)
 
 
-def makeint(v):
-    try:
-        t = int(v)
-    except:
-        t = None
-    return t
-
-
-# A function to display elapsed time in desired format.
-def getTime():
-    sec = round(time.perf_counter() - START_TIME)
-    minutes, sec = divmod(sec, 60)
-    hours, minutes = divmod(minutes, 60)
-    days, hours = divmod(hours, 24)
-    return f"{days} days, {hours} hours, {minutes} minutes, {sec} seconds"
-
-
-# A function to get IP address. It can give public IP or private.
-def getIp(public):
-    if public:
-        try:
-            ip = urlopen("https://api64.ipify.org").read().decode()
-        except:
-            ip = "127.0.0.1"
-
-    else:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            try:
-                s.connect(('10.255.255.255', 1))
-                ip = s.getsockname()[0]
-            except:
-                ip = '127.0.0.1'
-    return ip
-
-
-# A function to Log/Print text. Used instead of print()
-def log(data, key=None, adminput=False):
-    global logQ
-    if adminput:
-        text = ""
-    elif key is None:
-        text = "SERVER: "
-    else:
-        text = f"Player {key}: "
-
-    if data is not None:
-        text += data
-        if not adminput:
-            print(text)
-
-        if LOG:
-            logQ.put(time.asctime() + ": " + text + "\n")
-    else:
-        logQ.put(None)
-
-
-# Used instead of sock.recv(), because it returns the decoded message, handles
-# TCP packet loss, timeout and other useful stuff
-def read(sock, timeout=None):
-    try:
-        sock.settimeout(timeout)
-        msg = sock.recv(128).decode("utf-8").strip()
-
-    except:
-        msg = "quit"
-
-    if msg:
-        return msg
-    return "quit"
-
-
-# A function to message the server, this is used instead of socket.send()
-# beacause it buffers the message, handles packet loss and does not raise
-# exception if message could not be sent
-def write(sock, msg, prefix=False):
-    if msg:
-        if prefix:
-            msg = '@#@' + msg
-        buffedmsg = msg + (" " * (128 - len(msg)))
-        try:
-            sock.sendall(buffedmsg.encode("utf-8"))
-        except:
-            pass
-
-
-# This simple function handles the chess match. Returns after game ended.
-# Returns True if player got disconnected during the match, false otherwise.
-def game(sock1, sock2):
-    while True:
-        msg = read(sock1)
-        write(sock2, msg)
-        if msg == "quit":
-            return True
-
-        elif msg in ["draw", "resign", "end"]:
-            return False
-
-
 class Client:
     def __init__(self, sock, name):
         self.socket = sock
         self.name = name
-        self.active_msg_prefix = '@#@'
         self.funcs = {
             'pStat': self.pStat,
             'gStat': self.gStat,

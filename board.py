@@ -34,7 +34,8 @@ def container():
 
 class Card:
     def __init__(self, costs, color, score):
-        self.costs = costs  # numpy array
+        assert len(costs) == Color.Yellow
+        self.costs = np.array(costs)  # numpy array
         self.color = color
         self.score = score
 
@@ -42,7 +43,8 @@ class Card:
 class NobleCard:
     def __init__(self, costs):
         self.score = 3
-        self.costs = costs
+        assert len(costs) == Color.Yellow
+        self.costs = np.array(costs)
 
 
 class Player:
@@ -109,11 +111,11 @@ class Board:
     Card1_icon = '\033[32;1m * \033[0m'
     Noble_icon = '\033[33;1m-*-\033[0m'
 
-    def __init__(self, players, noble_cards, cards_3, cards_2, cards_1):
+    def __init__(self, player_names, noble_cards, cards_3, cards_2, cards_1):
         self.width = 90
-        self.num_players = len(players)
+        self.num_players = len(player_names)
         self.players = []
-        for name in players:
+        for name in player_names:
             self.players.append(Player(name))
 
         assert 5 > self.num_players > 1
@@ -148,28 +150,36 @@ class Board:
         self.Y_n = 5
         self.show()
 
+    def __call__(self, action):
+        pass
+
+    @staticmethod
+    def write(msg):
+        # 重载或重定向此函数
+        print(msg)
+
     def show(self):
         ClearCLI()
-        print('+----------------------------------------------------------------------------------------+')
+        self.write('+----------------------------------------------------------------------------------------+')
         self.show_cards(self.noble_cards_on_board, self.Noble_icon, True)
-        print('+----------------------------------------------------------------------------------------+')
-        print('|   coins        {}       {}       {}       {}       {}       {}             |'.
-              format(self.White, self.Black, self.Red, self.Blue, self.Green, self.Yellow))
-        print('|                  {}          {}          {}          {}          {}          {}              |'.
-              format(self.W_n, self.B_n, self.R_n, self.U_n, self.G_n, self.Y_n))
-        print('|----------------------------------------------------------------------------------------|')
+        self.write('+----------------------------------------------------------------------------------------+')
+        self.write('|   coins        {}       {}       {}       {}       {}       {}             |'.
+                   format(self.White, self.Black, self.Red, self.Blue, self.Green, self.Yellow))
+        self.write('|                  {}          {}          {}          {}          {}          {}              |'.
+                   format(self.W_n, self.B_n, self.R_n, self.U_n, self.G_n, self.Y_n))
+        self.write('|----------------------------------------------------------------------------------------|')
         self.show_cards(self.cards_3_on_board, self.Card3_icon)
-        print('|----------------------------------------------------------------------------------------|')
+        self.write('|----------------------------------------------------------------------------------------|')
         self.show_cards(self.cards_2_on_board, self.Card2_icon)
-        print('|----------------------------------------------------------------------------------------|')
+        self.write('|----------------------------------------------------------------------------------------|')
         self.show_cards(self.cards_1_on_board, self.Card1_icon)
-        print('|----------------------------------------------------------------------------------------|')
+        self.write('|----------------------------------------------------------------------------------------|')
         self.show_players()
-        print('+----------------------------------------------------------------------------------------+')
+        self.write('+----------------------------------------------------------------------------------------+')
 
     def show_players(self):
-        print('|               {}      {}      {}      {}      {}      {}       total       |'.
-              format(self.White, self.Black, self.Red, self.Blue, self.Green, self.Yellow))
+        self.write('|               {}      {}      {}      {}      {}      {}       total       |'.
+                   format(self.White, self.Black, self.Red, self.Blue, self.Green, self.Yellow))
         for player in self.players:
             s = '|' + player.name.ljust(15)
             coins_n = 0
@@ -184,12 +194,12 @@ class Board:
             coins_n += player.uni_coins
             s += '({}, {})      |'.format(coins_n, cards_n)
             # s += ' (coins,cards)|'
-            print(s)
+            self.write(s)
             s = '|       total     '
             for i in cc:
                 s += '{}         '.format(i)
             s += '                     |'
-            print(s)
+            self.write(s)
 
     def show_cards(self, cards, icon, noble=False):
         s = '|    {}           '.format(icon)
@@ -199,8 +209,8 @@ class Board:
             # interval = (self.width - len(s)) // len(self.noble_cards_on_board)
             interval = 14
 
-        interval1 = ' '*(interval - 8)
-        interval2 = ' '*(interval - 6)
+        interval1 = ' ' * (interval - 8)
+        interval2 = ' ' * (interval - 6)
         for card in cards:
             if noble:
                 s += '({})     '.format(card.score) + interval1
@@ -214,9 +224,9 @@ class Board:
             n = 4 - len(cards)
             s += ' ' * interval * n
             s += '      |'
-        print(s)
+        self.write(s)
         if not noble:
-            print('|                                                                                        |')
+            self.write('|                                                                                        |')
         s = '|   costs'.ljust(21)
         for i in range(len(self.Ground_Colors) - 1):
             for card in cards:
@@ -234,8 +244,8 @@ class Board:
                 s += ' ' * interval * n
                 s += '    |'
             # s = s.ljust(self.width - 1) + '|'
-            # print(s.ljust(self.width - 1), '|')
-            print(s)
+            # self.write(s.ljust(self.width - 1), '|')
+            self.write(s)
             s = '|'.ljust(21)
 
 

@@ -79,6 +79,6 @@ if __name__ == '__main__':
     # name = input("Please enter your username: ")
     # ip = '192.168.31.58'
     ip = '172.30.130.36'
-    name = 'liujiaqi'
+    name = 'transformer'
     main(ip, name)
 

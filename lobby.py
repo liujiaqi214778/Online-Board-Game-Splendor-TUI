@@ -4,7 +4,7 @@ import time
 from board import ClearCLI
 from sockutils import *
 from utils import iterprint
-from event import Event
+import event
 
 
 class Lobby:
@@ -29,15 +29,14 @@ class Lobby:
 
     def __call__(self):
         print('Type [help] for more instructions...')
-        event = Event()
-        event.start()
+        event.event.start()
         t = 1 / self.fps
         while True:
             if isDead():
                 return -1
             time.sleep(t)
             # info = input()
-            info = event.get()  # event线程接收标准输入的指令
+            info = event.event.get()  # event线程接收标准输入的指令
             if info is not None:
                 info = info.split()
                 if len(info) == 0:

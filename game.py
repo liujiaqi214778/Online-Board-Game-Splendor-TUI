@@ -2,13 +2,14 @@
 
 from sockutils import *
 from board import Board, Player
+import event
 
 
 class Game:
-    def __init__(self, sock, name, tid):
+    def __init__(self, sock, name):
         self.socket = sock
         self.name = name
-        self.tid = tid
+        # self.tid = tid
         self.gettableinfo()
         self.board = Board()
 
