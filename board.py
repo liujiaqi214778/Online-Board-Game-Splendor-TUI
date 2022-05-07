@@ -263,7 +263,8 @@ class Board:
         if len(args) == 0:
             return -1
         args = list(args)
-        for i in range(3):
+        n = min(3, len(args))
+        for i in range(n):
             if args[i] not in self.Color_str_to_idx:
                 return -1
             args[i] = self.Color_str_to_idx[args[i]]
@@ -274,13 +275,13 @@ class Board:
             if self.coins[args[0]] < 4:
                 return -1
         else:
-            for i in range(3):
+            for i in range(n):
                 coins[args[i]] = 1
                 if self.coins[args[i]] == 0:
                     return -1
         if p.take_coins(coins) < 0:  # 手上币满了
             return -1
-        self.coins -= coins
+        self.coins[:-1] -= coins
         return 0
 
     def _redeem(self, p: Player, *args):
