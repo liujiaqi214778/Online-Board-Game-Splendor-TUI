@@ -31,6 +31,7 @@ class Lobby:
         print('Type [help] for more instructions...')
         event.event.start()
         t = 1 / self.fps
+        ret = 0
         while True:
             if isDead():
                 return -1
@@ -47,16 +48,20 @@ class Lobby:
                     print('Error... [{}] is not exist.'.format(ins))
                     self.lobby_instructions['help']()
                     continue
-                ret = self.lobby_instructions[ins](*args)
-                if ret is not None and ret < 0:
-                    return ret
+                r = self.lobby_instructions[ins](*args)
+                if r is not None and r < 0:
+                    ret = r
+                    break
 
             msg = active_msg_reciever.read()
             if msg is not None:
                 if msg == "close":
-                    return -1
+                    ret = -1
+                    break
                 if msg.startswith('game'):
                     self.game()
+        event.event.end()
+        return ret
 
     @classmethod
     def showlobbyhelp(cls, *args):

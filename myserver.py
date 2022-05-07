@@ -127,12 +127,14 @@ class PlayerInfo:
         self.stat = 'a'
 
 
-class GroupInfo:
+class GroupInfo(threading.Thread):
     MaxN = 4
 
     def __init__(self, gid):
+        super(GroupInfo, self).__init__()
         self.gid = gid
         self.players = {}
+        self.queue = None
 
     def push(self, p):
         if p.name not in self.players and not self.isfull():
@@ -157,12 +159,13 @@ class GroupInfo:
                 return False
         return True
 
-    def game(self):
-        # game() 和其他函数可能由不同线程执行，考虑下self.players操作的线程安全
-        # 先给所有玩家发送 active msg
+    def run(self):
+        self.queue = queue.Queue()  # 由client线程发送，包括name
+        # game 和其他函数由不同线程执行，考虑下self.players操作的线程安全
         names = []
         for p in self.players.values():
             names.append(p.name)
+            # 先给所有玩家发送 active msg
             write(p.socket, 'game', True)
         random.shuffle(names)
         num = len(names)
@@ -178,23 +181,49 @@ class GroupInfo:
                 p = self.players[n]
                 if p is None:  # 中途有玩家退出
                     names[i] = None
-                action = self._read_action(p.socket, p.name)
-                if action is None:
-                    return
+                    num -= 1
+                action = self._read_action(p)
+                if action is None:  # 超时
+                    continue
                 if self._game_move(board, action) != 0:
                     return
+        # self.queue = None
 
-    def _read_action(self, sock, name):
-        msg = read(sock)
+    def put_player_msg(self, name, msg):
+        # 由client线程判断消息类型后put给game线程
+        if not self.is_alive():
+            self.queue = None
+            return -1
+        self.queue.put(name + ' ' + msg)
+        return 0
+
+    def _read_action(self, p):
+        # 改成每秒发送一次倒计时，超过60次则发送timeout
+        write(p.socket, 'action', True)
+        time.sleep(1)
+        get_right_msg = False
+        msg = None
+        while not get_right_msg:
+            try:
+                msg = self.queue.get(timeout=60)
+            except:
+                self._send_player_timeout_msg(p)
+                return None
+            if msg.startswith(p.name):
+                get_right_msg = True
         # ... timer
-        action = msg
+        assert msg is not None  # 应该不会None
+        action = msg[len(p.name):].strip()
         return action
+
+    def _send_player_timeout_msg(self, p):
+        pass
 
     def _game_move(self, board, action):
         board(action)
         self._send_board_to_clients(board)
         if self._game_end(board):
-            self.__send_end_info_to_clients(board)
+            self._send_end_info_to_clients(board)
             return 1
         return 0
 
@@ -204,17 +233,17 @@ class GroupInfo:
         return ret
 
     def _init_game(self, names):
-        cards = self._load_cards()
+        cards = self._load()
         board = Board(names, *cards)
         return board
 
     def _send_board_to_clients(self, board):
         pass
 
-    def __send_end_info_to_clients(self, board):
+    def _send_end_info_to_clients(self, board):
         pass
 
-    def _load_cards(self):
+    def _load(self):
         return tuple([[],[],[],[]])
 
     def __len__(self):
@@ -314,6 +343,7 @@ class Client:
             'join': self.join,
             'ginfo': self.ginfo,
             'ready': self.ready,
+            'game': self.put_msg_to_game_thread,
         }
 
     def __call__(self):
@@ -332,6 +362,19 @@ class Client:
             ret = self.funcs[ins](*args)
             if ret is not None and ret < 0:
                 return ret
+
+    def put_msg_to_game_thread(self, *args):
+        gid = players[self.name].gid
+        if gid is None:
+            log("send a game msg but he/she is not in a group/game.", self.name)
+            return
+        if len(args) == 0:
+            log("send a game msg but the msg is empty.", self.name)
+            return
+
+        g = groups[gid]
+        if g.put_player_msg(self.name, ' '.join(args)) < 0:
+            log("send a game msg but the game is over.", self.name)
 
     def pStat(self, *args):
         log("Made request for players Stats.", self.name)
@@ -412,9 +455,8 @@ class Client:
             p.stat = 'r'
             g = groups[p.gid]
             write(self.socket, f'Player {self.name} ready.')
-            if g.ifstart():
-                # write(self.socket, 'game', True)
-                return g.game()
+            if not g.is_alive() and g.ifstart():
+                return g.start()
             return
         p.stat = 'b'
         write(self.socket, f'Undo ready.')
