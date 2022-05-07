@@ -128,13 +128,17 @@ class PlayerInfo:
 
 
 class GroupInfo(threading.Thread):
-    MaxN = 4
 
-    def __init__(self, gid):
+    def __init__(self, gid, board: type):
+        # 确保board是个类而不是对象, 方便玩不同类型的游戏
+        assert isinstance(board, type)
         super(GroupInfo, self).__init__()
         self.gid = gid
         self.players = {}
         self.queue = None
+        self.Board = board
+        self.MaxN = self.Board.MaxN
+        self.MinN = self.Board.MinN
 
     def push(self, p):
         if p.name not in self.players and not self.isfull():
@@ -152,7 +156,7 @@ class GroupInfo(threading.Thread):
         return len(self.players) == self.MaxN
 
     def ifstart(self):
-        if len(self.players) < 2:
+        if len(self.players) < self.MinN:
             return False
         for p in self.players.values():
             if p.stat != 'r':
@@ -172,7 +176,7 @@ class GroupInfo(threading.Thread):
         board = self._init_game(names)
         while True:
             self._send_board_to_clients(board)
-            if num < 2:
+            if num < self.MinN:
                 # 发送中途结束消息
                 return
             for i, n in enumerate(names):
@@ -213,14 +217,16 @@ class GroupInfo(threading.Thread):
                 get_right_msg = True
         # ... timer
         assert msg is not None  # 应该不会None
-        action = msg[len(p.name):].strip()
+        # action = msg[len(p.name):].strip()
+        action = msg
         return action
 
     def _send_player_timeout_msg(self, p):
         pass
 
     def _game_move(self, board, action):
-        board(action)
+        if board.move(action) < 0:
+            return -1
         self._send_board_to_clients(board)
         if self._game_end(board):
             self._send_end_info_to_clients(board)
@@ -233,8 +239,8 @@ class GroupInfo(threading.Thread):
         return ret
 
     def _init_game(self, names):
-        cards = self._load()
-        board = Board(names, *cards)
+        board = self.Board(names)
+        board.load('./configs')
         return board
 
     def _send_board_to_clients(self, board):
@@ -242,9 +248,6 @@ class GroupInfo(threading.Thread):
 
     def _send_end_info_to_clients(self, board):
         pass
-
-    def _load(self):
-        return tuple([[],[],[],[]])
 
     def __len__(self):
         return len(self.players)
@@ -302,12 +305,12 @@ class Groups:
     MaxN = 30
 
     def __init__(self):
-        self.groups = [GroupInfo(i) for i in range(4)]
+        self.groups = [GroupInfo(i, Board) for i in range(4)]
 
     def create(self):
         if len(self.groups) == self.MaxN:
             return -1
-        self.groups.append(GroupInfo(len(self.groups)))
+        self.groups.append(GroupInfo(len(self.groups), Board))
         return 0
 
     def __getitem__(self, item):
