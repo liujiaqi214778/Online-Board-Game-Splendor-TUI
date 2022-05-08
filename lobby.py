@@ -1,7 +1,7 @@
 # 2022/5/4  12:33  liujiaqi
 import time
 
-from board import ClearCLI
+from board import ClearCLI, Board
 from sockutils import *
 from utils import iterprint
 import event
@@ -60,6 +60,8 @@ class Lobby:
                     break
                 if msg.startswith('game'):
                     self.game()
+                else:
+                    print(msg)
         event.event.end()
         return ret
 
@@ -91,19 +93,50 @@ class Lobby:
         self._showginfo(msglist)
 
     def ready(self, *args):
-        msglist = getmsgall(self.socket, 'ready')
-        if msglist is None:
-            return -2
-        if len(msglist) == 0:
-            print("You haven't joined any group yet.")
-            return 0
+        # msglist = getmsgall(self.socket, 'ready')
+        write(self.socket, 'ready')
         ClearCLI()
         self.groupinfo()
-        msg = msglist[0]
-        print(msg)
 
     def game(self, *args):
         print('start game....')
+        time.sleep(3)
+        board = Board([])
+        t = 1 / self.fps
+        while True:
+            if isDead():
+                return
+            time.sleep(t)
+            info = event.event.get()  # event线程接收标准输入的指令
+            if info:
+                write(self.socket, 'game ' + info)
+
+            msg = active_msg_reciever.read()
+            if msg is None:
+                continue
+            '''if msg is not None:
+                try:
+                    msg = active_msg_reciever.read(timeout=30)
+                except:
+                    print("time out,  30 seconds, quit game..")
+                    return  # 超时'''
+
+            if msg.startswith('board'):
+                try:
+                    board.update_board(msg[5:])
+                except:
+                    print(f'update_board error, json:\n {msg[5:]}')
+                    return
+                board.show()
+            elif msg.startswith('action'):
+                print("It's your turn. Action or help.")
+                continue
+            elif msg.startswith('gend'):
+                print(msg[4:].strip())
+                return
+            else:
+                print('Unknown msg:')
+                print(msg)
 
     def _showginfo(self, msglist):
         gid = msglist.pop()

@@ -15,7 +15,7 @@ import socket
 import threading
 import time
 from urllib.request import urlopen
-from board import Board
+from board import Board, container, Card, NobleCard, Color
 
 # These are constants that can be modified by users. Default settings
 # are given. Do not change if you do not know what you are doing.
@@ -94,7 +94,7 @@ def log(data, key=None, adminput=False):
 def read(sock, timeout=None):
     try:
         sock.settimeout(timeout)
-        msg = sock.recv(128).decode("utf-8").strip()
+        msg = sock.recv(4096).decode("utf-8").strip()
 
     except:
         msg = "quit"
@@ -110,8 +110,8 @@ def read(sock, timeout=None):
 def write(sock, msg, prefix=False):
     if msg:
         if prefix:
-            msg = '@#@' + msg
-        buffedmsg = msg + (" " * (128 - len(msg)))
+            msg = '@' + msg + '@'
+        buffedmsg = msg + (" " * (4096 - len(msg)))
         try:
             sock.sendall(buffedmsg.encode("utf-8"))
         except:
@@ -139,6 +139,11 @@ class GroupInfo(threading.Thread):
         self.Board = board
         self.MaxN = self.Board.MaxN
         self.MinN = self.Board.MinN
+
+    def __getitem__(self, item):
+        if item in self.players:
+            return self.players[item]
+        return None
 
     def push(self, p):
         if p.name not in self.players and not self.isfull():
@@ -174,22 +179,27 @@ class GroupInfo(threading.Thread):
         random.shuffle(names)
         num = len(names)
         board = self._init_game(names)
+        self._send_board_to_clients(board)
         while True:
-            self._send_board_to_clients(board)
             if num < self.MinN:
                 # 发送中途结束消息
+                self._send_board_to_clients(board)
+                log(f"group {self.gid} game 中途结束")
                 return
             for i, n in enumerate(names):
                 if n is None:
                     continue
-                p = self.players[n]
+                p = self[n]
                 if p is None:  # 中途有玩家退出
                     names[i] = None
                     num -= 1
+                    continue
                 action = self._read_action(p)
+                self._send_board_to_clients(board)
                 if action is None:  # 超时
                     continue
-                if self._game_move(board, action) != 0:
+                log(f" action: [{action}]", p.name)
+                if self._game_move(board, action) > 0:  # 游戏结束
                     return
         # self.queue = None
 
@@ -225,10 +235,13 @@ class GroupInfo(threading.Thread):
         pass
 
     def _game_move(self, board, action):
-        if board.move(action) < 0:
+        game_stat = board.move(action)
+        if game_stat < 0:  # 错误的action
+            log(f" Action Error [{action}]")
             return -1
         self._send_board_to_clients(board)
-        if self._game_end(board):
+        # if self._game_end(board):
+        if game_stat > 0:
             self._send_end_info_to_clients(board)
             return 1
         return 0
@@ -239,15 +252,31 @@ class GroupInfo(threading.Thread):
         return ret
 
     def _init_game(self, names):
+        log(f"Group {self.gid} init game.")
         board = self.Board(names)
-        board.load('./configs')
+        # board.load('./configs')
+        cost = container()
+        cost[[0, 2, 3]] = 2
+        N_C = [NobleCard(cost) for _ in range(10)]
+        cards3 = [Card(cost, Color.Red, 1) for i in range(10)]
+        cards2 = [Card(cost, Color.Red, 1) for _ in range(10)]
+        cards1 = [Card(cost, i % 5, 1) for i in range(10)]
+        board.load(N_C, cards3, cards2, cards1)
         return board
 
     def _send_board_to_clients(self, board):
-        pass
+        msg = board.info_on_board()
+        log(f"send info on board: [{msg}]")
+        for name in self.players:
+            p = self.players[name]
+            write(p.socket, 'board ' + msg, True)
 
     def _send_end_info_to_clients(self, board):
-        pass
+        log(f"Group {self.gid} game over.")
+        self._send_board_to_clients(board)
+        for name in self.players:
+            p = self.players[name]
+            write(p.socket, 'gend Game over', True)
 
     def __len__(self):
         return len(self.players)
@@ -457,9 +486,13 @@ class Client:
         if p.stat != 'r':
             p.stat = 'r'
             g = groups[p.gid]
-            write(self.socket, f'Player {self.name} ready.')
-            if not g.is_alive() and g.ifstart():
-                return g.start()
+            write(self.socket, f'Player {self.name} ready.', True)
+            # if not g.is_alive() and g.ifstart():
+            if g.ifstart():
+                try:
+                    g.start()
+                except:
+                    write(self.socket, "Game is already started.", True)
             return
         p.stat = 'b'
         write(self.socket, f'Undo ready.')

@@ -19,14 +19,29 @@ def bgThread(sock):
     isdead = False
     while True:
         try:
-            msg = sock.recv(128).decode("utf-8").strip()
+            msg = sock.recv(4096).decode("utf-8").strip()
         except Exception as e:
             print(repr(e))
             break
-        if not msg or msg == "close":
+        if not msg:
+            continue
+        if msg.startswith('@'):  # prefix of server's active message
+            '''# 只让 active meesage 有可能超过128
+            if not msg.endswith('@'):
+                try:
+                    msg += sock.recv(4096).decode("utf-8").strip()
+                except Exception as e:
+                    print(repr(e))
+                    break'''
+            if msg[-1] != '@':
+                print(f'Error occur when receiving msg: [{msg}]')
+                break
+            msg = msg[1:-1]
+            if not msg:
+                continue
+            active_msg_q.put(msg)
+        elif msg == "close":
             break
-        if msg.startswith('@#@'):  # prefix of server's active message
-            active_msg_q.put(msg[3:])
         elif msg != "........":
             q.put(msg)
     isdead = True
@@ -36,11 +51,14 @@ class ActiveMsgReciever:
     def __init__(self, que):
         self.queue = que
 
-    def read(self):
-        try:
-            out = self.queue.get_nowait()
-        except:
-            return None
+    def read(self, timeout=None):
+        if timeout is not None:
+            out = self.queue.get(timeout=timeout)
+        else:
+            try:
+                out = self.queue.get_nowait()
+            except:
+                return None
         return out
 
 
@@ -78,7 +96,7 @@ def flush():
 # exception if message could not be sent
 def write(sock, msg):
     if msg:
-        buffedmsg = msg + (" " * (128 - len(msg)))
+        buffedmsg = msg + (" " * (4096 - len(msg)))
         try:
             sock.sendall(buffedmsg.encode("utf-8"))
         except:

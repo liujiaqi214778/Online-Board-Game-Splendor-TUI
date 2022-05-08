@@ -30,6 +30,7 @@ def json_dumps(*args, **kwargs):
             return obj.__dict__
         return obj
     return json.dumps(*args, separators=(',', ':'), default=default_func, **kwargs)
+    # return json.dumps(*args, default=default_func, **kwargs)
 
 
 class Color:  # (Enum):
@@ -52,6 +53,7 @@ class Card:
         # Card('[1,1,1,1,1] 2 1')  costs, color, score
         # Card([1,1,1,1,1], 2, 1)
         # Card('[1,1,1,1,1]', 2, 1)
+        # Card(card)
         if len(args) == 1:
             self._init_str(str(args[0]))
             return
@@ -97,6 +99,20 @@ class NobleCard:
 
 class Player:
     def __init__(self, name):
+        if isinstance(name, dict):
+            try:
+                d = name
+                self.name = d['name']
+                self.coins = np.array(d['coins'], dtype=np.int32)
+                self.cards = np.array(d['cards'], dtype=np.int32)
+                self.uni_coins = d['uni_coins']
+                self.score = d['score']
+                self.tmpcards = d['tmpcards']
+                for i, v in enumerate(self.tmpcards):
+                    self.tmpcards[i] = Card(v)
+                return
+            except:
+                pass
         self.name = name
         self.coins = container()
         self.cards = container()
@@ -114,7 +130,8 @@ class Player:
         tcards = d['tmpcards']
         for i, card in enumerate(tcards):
             tcards[i] = str(card)
-        return json.dumps(d, separators=(',', ':'))'''
+        return json.dumps(d, separators=(',', ':'))
+        '''
         return json_dumps(self)
 
     '''def redeem(self, idx):
@@ -216,7 +233,7 @@ class Board:
         for name in player_names:
             self.players[name] = Player(name)
 
-        assert 5 > self.num_players > 1
+        # assert 5 > self.num_players > 1
 
         self.cards = [[], [], []]
         self.noble_cards_on_board = []
@@ -387,10 +404,9 @@ class Board:
             self.cards_on_board.append(cs)
 
         self.coins = np.array(info_all[2], dtype=np.int32)
-        self.players = {}
-        '''self.players = info_all[3]
+        self.players = info_all[3]
         for k in self.players:
-            self.players[k] = Player(players[k])'''
+            self.players[k] = Player(self.players[k])
 
     def info_on_board(self):
         # noble_cards, cards3, cards2, cards1, coins, players
@@ -416,7 +432,7 @@ class Board:
         print(msg)
 
     def show(self):
-        ClearCLI()
+        # ClearCLI()
         self.write('+----------------------------------------------------------------------------------------+')
         self.show_cards(self.noble_cards_on_board, self.Noble_icon, True)
         self.write('+----------------------------------------------------------------------------------------+')
@@ -514,8 +530,10 @@ if __name__ == '__main__':
     cards3 = [Card(cost, Color.Red, 1) for i in range(10)]
     cards2 = [Card(cost, Color.Red, 1) for _ in range(10)]
     cards1 = [Card(cost, i % 5, 1) for i in range(10)]
-    players = ['liujiaqi', 'leo', 'awseg', 'rgwe']
+    players = ['liujiaqi', 'leo', 'abc', 'transformer']
     board = Board(players)
+    board.players['leo'].tmpcards.append(Card('[3,2,4,1,1] 2 3'))
+    board.players['leo'].tmpcards.append(Card('[1,2,3,4,5] 3 2'))
     board.load(N_C, cards3, cards2, cards1)
     for i in range(1):
         board.show()
