@@ -96,6 +96,7 @@ class Lobby:
             return -2
         if len(msglist) == 0:
             print("You haven't joined any group yet.")
+            return 0
         ClearCLI()
         self.groupinfo()
         msg = msglist[0]

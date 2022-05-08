@@ -18,7 +18,7 @@ class Event(Thread):
                 self.q.put(v)
 
     def end(self):
-        self._end = True
+        self._end = True  # 不一定马上结束，input阻塞
 
     def get(self):
         assert not self.q.empty() or self.is_alive()
