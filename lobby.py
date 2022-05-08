@@ -110,16 +110,13 @@ class Lobby:
             info = event.event.get()  # event线程接收标准输入的指令
             if info:
                 write(self.socket, 'game ' + info)
+                if info.startswith('quit'):
+                    print('Quit the game...')
+                    return
 
             msg = active_msg_reciever.read()
             if msg is None:
                 continue
-            '''if msg is not None:
-                try:
-                    msg = active_msg_reciever.read(timeout=30)
-                except:
-                    print("time out,  30 seconds, quit game..")
-                    return  # 超时'''
 
             if msg.startswith('board'):
                 try:

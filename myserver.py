@@ -168,7 +168,17 @@ class GroupInfo(threading.Thread):
                 return False
         return True
 
-    def run(self):
+    def run(self) -> None:
+        self.game()
+        # super(GroupInfo, self).__init__()
+
+    def restart(self):
+        if self.is_alive():
+            raise RuntimeError("Game is already started")
+        super(GroupInfo, self).__init__()
+        self.start()
+
+    def game(self):
         self.queue = queue.Queue()  # 由client线程发送，包括name
         # game 和其他函数由不同线程执行，考虑下self.players操作的线程安全
         names = []
@@ -185,6 +195,7 @@ class GroupInfo(threading.Thread):
                 # 发送中途结束消息
                 self._send_board_to_clients(board)
                 log(f"group {self.gid} game 中途结束")
+                self._send_end_info_to_clients(board)
                 return
             for i, n in enumerate(names):
                 if n is None:
@@ -208,6 +219,8 @@ class GroupInfo(threading.Thread):
         if not self.is_alive():
             self.queue = None
             return -1
+        if msg.startswith('quit'):
+            self.pop(name)
         self.queue.put(name + ' ' + msg)
         return 0
 
@@ -490,8 +503,9 @@ class Client:
             # if not g.is_alive() and g.ifstart():
             if g.ifstart():
                 try:
-                    g.start()
-                except:
+                    g.restart()
+                except Exception as e:
+                    log(repr(e), self.name)
                     write(self.socket, "Game is already started.", True)
             return
         p.stat = 'b'
