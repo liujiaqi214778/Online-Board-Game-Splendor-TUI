@@ -132,7 +132,7 @@ class Lobby:
                 print(msg[4:].strip())
                 return
             else:
-                print('Unknown msg:')
+                # print('Unknown msg:')
                 print(msg)
 
     def _showginfo(self, msglist):

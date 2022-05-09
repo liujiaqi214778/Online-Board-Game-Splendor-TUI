@@ -4,6 +4,8 @@ import random
 import time
 import numpy as np
 import json
+import os
+import glob
 import copy
 
 from colorama import init
@@ -112,7 +114,7 @@ class Player:
                     self.tmpcards[i] = Card(v)
                 return
             except:
-                pass
+                raise ValueError
         self.name = name
         self.coins = container()
         self.cards = container()
@@ -254,6 +256,7 @@ class Board:
             'buy': self._buy,
             'b': self._buy,
         }
+        self.error_msg = ''
 
     def move(self, action: str):  # return > 0 游戏结束 return -1: 错误的action, return < -1 其他错误
         # action: name ins args
@@ -262,15 +265,15 @@ class Board:
 
         info = action.split()
         if len(info) < 2:
-            return -1
+            raise ValueError(f'Warning: action empty.')  # runtimeerror 要退出游戏， ValueError 为action 错误可继续move
         name = info[0]
         if name not in self.players:
-            return -1
+            raise ValueError(f'Player [{name}] is not in this game.')
         p = self.players[name]
         ins = info[1]
         args = tuple(info[2:])
         if ins not in self.actions:
-            return -1
+            raise ValueError(f'Warning: action [{ins}] is not exist.')
 
         ret = self.actions[ins](p, *args)
         if ret is None:
@@ -282,15 +285,15 @@ class Board:
     def _buy(self, p: Player, *args):
         # [i] [j] ...,  [i] 级卡的从左往右数第 [j] 张
         if len(args) != 2:
-            return -1
+            raise ValueError(f"Action [buy] error: args num should be 2. args[{args}]")
         args = list(args)
         for i in range(2):
             try:
                 args[i] = int(args[i]) - 1
             except:
-                return -1
+                raise ValueError(f"args[{i}]: [{args[i]}] should be a number")
         if args[0] < 0 or args[0] > 2 or args[1] < 0 or args[1] >= len(self.cards_on_board[args[0]]):
-            return -1
+            raise ValueError("Index Error")
         card = self.cards_on_board[args[0]].pop(args[1])
         if p.buy(card, self.noble_cards_on_board, self.coins) < 0:
             return -1
@@ -332,7 +335,7 @@ class Board:
         # take r b g
         # r, red, R, ReD : red
         if len(args) == 0:
-            return -1
+            raise ValueError("args is empty.")
         args = list(args)
         n = min(3, len(args))
         for i in range(n):
@@ -372,23 +375,59 @@ class Board:
             p.tmpcards.pop(idx)
         return ret
 
-    def load(self, noble_cards, cards_3, cards_2, cards_1):
+    def is_end(self):
+        return self._end
+
+    def load(self):
         # noble_cards = cards_3 = cards_2 = cards_1 = []  # *****
+        fpath = os.path.join('gamefiles', 'BSSR')
+        if not os.path.isdir(fpath):
+            raise ValueError(f"Game file path [{fpath}] is not exist.")
+
+        noble_cards = os.path.join(fpath, 'cards_n.txt')
+        cards_3 = os.path.join(fpath, 'cards_3.txt')
+        cards_2 = os.path.join(fpath, 'cards_2.txt')
+        cards_1 = os.path.join(fpath, 'cards_1.txt')
+
+        required_files = [noble_cards, cards_3, cards_2, cards_1]
+        self.check_before_run(required_files)
+        noble_cards = self.process_file(noble_cards, NobleCard)
+        cards_3 = self.process_file(cards_3, Card)
+        cards_2 = self.process_file(cards_2, Card)
+        cards_1 = self.process_file(cards_1, Card)
 
         self.cards = [cards_1, cards_2, cards_3]
-
         n = self.num_players + 1
-
         random.shuffle(noble_cards)
         for k in self.cards:
             random.shuffle(k)
-
         for _ in range(n):
             self.noble_cards_on_board.append(noble_cards.pop())
-
         for _ in range(4):
             for i in range(3):
                 self.cards_on_board[i].append(self.cards[i].pop())
+
+    @staticmethod
+    def check_before_run(required_files):
+        """Checks if required files exist before going deeper.
+        Args:
+            required_files (str or list): string file name(s).
+        """
+        if isinstance(required_files, str):
+            required_files = [required_files]
+
+        for fpath in required_files:
+            if not os.path.exists(fpath):
+                raise RuntimeError('"{}" is not found'.format(fpath))
+
+    @staticmethod
+    def process_file(fpath, card_type: type):
+        cards = []
+        assert isinstance(card_type, type)
+        for line in open(fpath):
+            if line and not line.startswith('#'):
+                cards.append(card_type(line))
+        return cards
 
     def update_board(self, info):  # 更新on board的信息，给client 打印
         info_all = json.loads(info)

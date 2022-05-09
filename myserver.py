@@ -210,7 +210,17 @@ class GroupInfo(threading.Thread):
                 if action is None:  # 超时
                     continue
                 log(f" action: [{action}]", p.name)
-                if self._game_move(board, action) > 0:  # 游戏结束
+                try:
+                    self._game_move(board, action)  # 游戏结束
+                except ValueError as e:
+                    write(p.socket, str(e), True)
+                except:
+                    self._send_end_info_to_clients(board)
+                    return
+
+                self._send_board_to_clients(board)
+                if self._game_end(board):
+                    self._send_board_to_clients(board)
                     return
         # self.queue = None
 
@@ -225,6 +235,7 @@ class GroupInfo(threading.Thread):
         return 0
 
     def _read_action(self, p):
+        self._send_msg_to_clients(f"Current Player: {p.name}")
         # 改成每秒发送一次倒计时，超过60次则发送timeout
         write(p.socket, 'action', True)
         time.sleep(1)
@@ -244,12 +255,19 @@ class GroupInfo(threading.Thread):
         action = msg
         return action
 
+    def _send_msg_to_clients(self, msg):
+        for name in self.players:
+            p = self[name]
+            if p is not None:
+                write(p.socket, msg, True)
+
     def _send_player_timeout_msg(self, p):
         pass
 
     def _game_move(self, board, action):
-        game_stat = board.move(action)
-        if game_stat < 0:  # 错误的action
+        board.move(action)
+
+        '''if game_stat < 0:  # 错误的action
             log(f" Action Error [{action}]")
             return -1
         self._send_board_to_clients(board)
@@ -257,32 +275,30 @@ class GroupInfo(threading.Thread):
         if game_stat > 0:
             self._send_end_info_to_clients(board)
             return 1
-        return 0
+        return 0'''
 
     def _game_end(self, board):
-        # ...
-        ret = []
-        return ret
+        return board.is_end()
 
     def _init_game(self, names):
+        # 要处理异常
         log(f"Group {self.gid} init game.")
         board = self.Board(names)
-        # board.load('./configs')
+        '''# board.load('./configs')
         cost = container()
         cost[[0, 2, 3]] = 2
         N_C = [NobleCard(cost) for _ in range(10)]
         cards3 = [Card(cost, Color.Red, 1) for i in range(10)]
         cards2 = [Card(cost, Color.Red, 1) for _ in range(10)]
         cards1 = [Card(cost, i % 5, 1) for i in range(10)]
-        board.load(N_C, cards3, cards2, cards1)
+        board.load(N_C, cards3, cards2, cards1)'''
+        board.load()
         return board
 
     def _send_board_to_clients(self, board):
         msg = board.info_on_board()
         log(f"send info on board: [{msg}]")
-        for name in self.players:
-            p = self.players[name]
-            write(p.socket, 'board ' + msg, True)
+        self._send_msg_to_clients('board ' + msg)
 
     def _send_end_info_to_clients(self, board):
         log(f"Group {self.gid} game over.")
