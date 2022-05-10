@@ -353,8 +353,11 @@ class Board:
             coins[args[i]] += 1
 
         idx = coins > 1
-        if len(idx) > 0 and self.coins[:-1][idx] < 4:
-            raise ValueError("Coins number < 4")
+        if len(coins[idx]) > 0:
+            if n == 3:
+                raise ValueError(f"args error [{args}]")  # 拿了两个相同的币+1个其他币
+            if self.coins[:-1][idx] < 4:
+                raise ValueError("Coins number < 4")  # 要拿两个币但是剩余硬币<4
 
         c = self.coins[:-1] - coins
         if len(c[c < 0]) > 0:

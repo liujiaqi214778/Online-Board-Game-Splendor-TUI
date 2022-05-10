@@ -191,7 +191,6 @@ class GroupInfo(threading.Thread):
             return
 
         self._send_msg_to_clients('gstart')
-        # time.sleep(1)
         self._send_board_to_clients(board)
         round_n = 0
         while True:
