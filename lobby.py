@@ -58,7 +58,7 @@ class Lobby:
                 if msg == "close":
                     ret = -1
                     break
-                if msg.startswith('game'):
+                if msg.startswith('gstart'):
                     self.game()
                 else:
                     print(msg)

@@ -181,46 +181,50 @@ class GroupInfo(threading.Thread):
     def game(self):
         self.queue = queue.Queue()  # 由client线程发送，包括name
         # game 和其他函数由不同线程执行，考虑下self.players操作的线程安全
-        names = []
-        for p in self.players.values():
-            names.append(p.name)
-            # 先给所有玩家发送 active msg
-            write(p.socket, 'game', True)
+        names = list(self.players.keys())
         random.shuffle(names)
-        num = len(names)
-        board = self._init_game(names)
+        try:
+            board = self._init_game(names)
+        except Exception as e:
+            self._send_msg_to_clients('Init Game Error:')
+            self._send_msg_to_clients(repr(e))
+            return
+
+        self._send_msg_to_clients('gstart')
+        # time.sleep(1)
         self._send_board_to_clients(board)
+        round_n = 0
         while True:
-            if num < self.MinN:
+            if len(self.players) < self.MinN:
                 # 发送中途结束消息
-                self._send_board_to_clients(board)
                 log(f"group {self.gid} game 中途结束")
-                self._send_end_info_to_clients(board)
+                self._send_msg_to_clients('Not enough players, game over.')
                 return
-            for i, n in enumerate(names):
-                if n is None:
-                    continue
+            round_n += 1
+            self._send_msg_to_clients(f'round {round_n}')
+            for i, n in enumerate(board.get_players()):
                 p = self[n]
                 if p is None:  # 中途有玩家退出
-                    names[i] = None
-                    num -= 1
+                    board.quit(n)
                     continue
+                # timout = 60
                 action = self._read_action(p)
-                self._send_board_to_clients(board)
                 if action is None:  # 超时
+                    self._send_board_to_clients(board)
                     continue
                 log(f" action: [{action}]", p.name)
+                self._send_msg_to_clients(f"Player {action}")
                 try:
-                    self._game_move(board, action)  # 游戏结束
-                except ValueError as e:
-                    write(p.socket, str(e), True)
-                except:
-                    self._send_end_info_to_clients(board)
-                    return
-
-                self._send_board_to_clients(board)
-                if self._game_end(board):
+                    self._game_move(board, action)
                     self._send_board_to_clients(board)
+                    if self._game_end(board):
+                        self._send_end_info_to_clients(board)
+                        return
+                except ValueError as e:  # 单个玩家的action有问题，不影响游戏
+                    # write(p.socket, str(e), True)  # ***改成让该玩家重新输入3次
+                    self._send_msg_to_clients(str(e))
+                except Exception as e:
+                    self._send_msg_to_clients(f'Game Error, [{repr(e)}].\nGame Over')
                     return
         # self.queue = None
 
@@ -229,12 +233,12 @@ class GroupInfo(threading.Thread):
         if not self.is_alive():
             self.queue = None
             return -1
-        if msg.startswith('quit'):
-            self.pop(name)
-        self.queue.put(name + ' ' + msg)
+        if msg:
+            self.queue.put(name + ' ' + msg)
         return 0
 
-    def _read_action(self, p):
+    def _read_action(self, p, timeout=60):
+        log(f"reading action from player {p.name}")
         self._send_msg_to_clients(f"Current Player: {p.name}")
         # 改成每秒发送一次倒计时，超过60次则发送timeout
         write(p.socket, 'action', True)
@@ -243,12 +247,16 @@ class GroupInfo(threading.Thread):
         msg = None
         while not get_right_msg:
             try:
-                msg = self.queue.get(timeout=60)
+                msg = self.queue.get(timeout=timeout)  # 中途有其他信息会刷新计时器
             except:
                 self._send_player_timeout_msg(p)
                 return None
-            if msg.startswith(p.name):
+            args = msg.split()
+            if args[0] == p.name:
                 get_right_msg = True
+            if args[1] == 'quit':
+                self._send_msg_to_clients(f'Player {args[0]} quit the game')
+                self.pop(args[0])
         # ... timer
         assert msg is not None  # 应该不会None
         # action = msg[len(p.name):].strip()
@@ -302,10 +310,8 @@ class GroupInfo(threading.Thread):
 
     def _send_end_info_to_clients(self, board):
         log(f"Group {self.gid} game over.")
-        self._send_board_to_clients(board)
-        for name in self.players:
-            p = self.players[name]
-            write(p.socket, 'gend Game over', True)
+        # self._send_board_to_clients(board)
+        self._send_msg_to_clients(f'Game over. {board.win_msg()}')
 
     def __len__(self):
         return len(self.players)
@@ -672,7 +678,7 @@ def initPlayerThread(sock):
     total += 1
 
     def judge_name(name):
-        if name in players.players or len(name) > 15:
+        if not name or name in players.players or len(name) > 15:
             return False
         players.push(name, sock)
         return True
@@ -696,7 +702,7 @@ def initPlayerThread(sock):
     else:
         name = read(sock, 3)
         if not judge_name(name):
-            log("Client sent invalid user name (length > 15 or already exist), closing connection.")
+            log("Client sent invalid user name (length > 15 or none or already exist), closing connection.")
             write(sock, "errName")
         else:
             totalsuccess += 1

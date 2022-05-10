@@ -37,11 +37,23 @@ def json_dumps(*args, **kwargs):
 
 class Color:  # (Enum):
     White = 0
-    Black = 1
+    Blue = 1
+    Green = 2
+    Red = 3
+    Black = 4
+    '''Black = 1
     Red = 2
     Blue = 3
-    Green = 4
+    Green = 4'''
     Yellow = 5
+
+    W = 'W\033[1;30;47m   \033[0m'
+    B = 'B\033[40;1m   \033[0m'
+    R = 'R\033[41;1m   \033[0m'
+    U = 'U\033[44;1m   \033[0m'
+    G = 'G\033[42;1m   \033[0m'
+    Y = 'Y\033[43;1m   \033[0m'
+    Ground_Colors = [W, U, G, R, B, Y]
 
 
 def container():
@@ -61,7 +73,7 @@ class Card:
             return
 
         if len(args) != 3:
-            raise ValueError
+            raise ValueError(f"Card init Error, args number should be 3. args:[{args}]")
 
         ct = args[0]
         if isinstance(ct, str):
@@ -69,14 +81,14 @@ class Card:
 
         self.costs = np.array(ct, dtype=np.int32)  # numpy array
         if len(self.costs) != Color.Yellow:
-            raise ValueError
+            raise ValueError(f"Card init Error, costs format error. [{self.costs}]")
         self.color = args[1]
         self.score = args[2]
 
     def _init_str(self, ss: str):
         attrs = ss.split()
         if len(attrs) != 3:
-            raise ValueError  # ****
+            raise ValueError(f"Card init Error [{ss}]")
         costs = json.loads(attrs[0])
         self.costs = np.array(costs, dtype=np.int32) - container()  # 减法为了检查错误
         self.color = int(attrs[1])
@@ -147,10 +159,10 @@ class Player:
 
     def take_coins(self, coins):
         if sum(self.coins) + sum(coins) > 10:
-            return -1
+            raise ValueError(f'Your coins should <= 10. [{self.coins}] take[{coins}]')
         self.coins += coins
         # self.vals += coins
-        return 0
+        # return 0
 
     def take_uni_coin(self, card: Card):
         if len(self.tmpcards) == 3:
@@ -164,7 +176,7 @@ class Player:
         t = self.coins + self.cards - card.costs
         t = sum(t[t < 0])
         if self.uni_coins + t < 0:
-            return -1
+            raise ValueError(f"You do not have enough money to buy it [{str(card)}]")
         self.uni_coins += t
         all_coins[-1] -= t
 
@@ -182,9 +194,6 @@ class Player:
             if self.take_noble_card(nc):
                 noble_cards.pop(i)
                 break
-        if self.score >= 15:
-            return 1
-        return 0
 
     def take_noble_card(self, nobel_card: NobleCard):
         t = self.cards - nobel_card.costs
@@ -195,13 +204,6 @@ class Player:
 
 
 class Board:
-    White = 'W\033[1;30;47m   \033[0m'
-    Black = 'B\033[40;1m   \033[0m'
-    Red = 'R\033[41;1m   \033[0m'
-    Blue = 'U\033[44;1m   \033[0m'
-    Green = 'G\033[42;1m   \033[0m'
-    Yellow = 'Y\033[43;1m   \033[0m'
-    Ground_Colors = [White, Black, Red, Blue, Green, Yellow]
 
     Card3_icon = '\033[35;1m***\033[0m'
     Card2_icon = '\033[31;1m* *\033[0m'
@@ -228,7 +230,7 @@ class Board:
 
     }
 
-    def __init__(self, player_names):
+    def __init__(self, player_names):  # *** 增加输出玩家tmpcards信息, 牌库卡剩余信息
         self.width = 90
         self.num_players = len(player_names)
         self.players = {}
@@ -256,12 +258,11 @@ class Board:
             'buy': self._buy,
             'b': self._buy,
         }
-        self.error_msg = ''
 
     def move(self, action: str):  # return > 0 游戏结束 return -1: 错误的action, return < -1 其他错误
         # action: name ins args
-        if self._end:
-            return 1
+        if self.is_end():
+            return
 
         info = action.split()
         if len(info) < 2:
@@ -275,12 +276,8 @@ class Board:
         if ins not in self.actions:
             raise ValueError(f'Warning: action [{ins}] is not exist.')
 
-        ret = self.actions[ins](p, *args)
-        if ret is None:
-            ret = 0
-        if ret > 0:
-            self._end = True
-        return ret
+        self.actions[ins](p, *args)
+        self._set_end(name)
 
     def _buy(self, p: Player, *args):
         # [i] [j] ...,  [i] 级卡的从左往右数第 [j] 张
@@ -294,9 +291,16 @@ class Board:
                 raise ValueError(f"args[{i}]: [{args[i]}] should be a number")
         if args[0] < 0 or args[0] > 2 or args[1] < 0 or args[1] >= len(self.cards_on_board[args[0]]):
             raise ValueError("Index Error")
-        card = self.cards_on_board[args[0]].pop(args[1])
-        if p.buy(card, self.noble_cards_on_board, self.coins) < 0:
-            return -1
+        x, y = args[0], args[1]
+        card = self.cards_on_board[x][y]
+        p.buy(card, self.noble_cards_on_board, self.coins)
+
+        if len(self.cards[args[0]]) > 0:
+            card = self.cards[x].pop()  # 牌库取牌
+            self.cards_on_board[x][y] = card
+        else:
+            self.cards_on_board[x].pop(y)
+
         # self.coins += card.costs
 
     def _take_uni_coins(self, p: Player, *args):
@@ -314,7 +318,7 @@ class Board:
                 return -1
             if len(self.cards[card_type]) == 0:  # 这种类型的卡已经用完了
                 return -1
-            card = self.cards[card_type].pop()  # 盲抵一手
+            card = self.cards[card_type].pop()  # 盲抵一手  ******判断牌库信息
         else:
             args = list(args)
             for i in range(2):
@@ -324,7 +328,7 @@ class Board:
                     return -1
             if args[0] < 0 or args[0] > 2 or args[1] < 0 or args[1] >= len(self.cards_on_board[args[0]]):
                 return -1
-            card = self.cards_on_board[args[0]].pop(args[1])
+            card = self.cards_on_board[args[0]].pop(args[1])  # ******判断牌库信息
 
         if p.take_uni_coin(card) < 0:  # 应该不会<0
             return -1
@@ -332,31 +336,32 @@ class Board:
 
     def _take_coins(self, p: Player, *args):
         # take r
+        # take r r
+        # take r b
         # take r b g
         # r, red, R, ReD : red
         if len(args) == 0:
             raise ValueError("args is empty.")
+        coins = container()
+
         args = list(args)
         n = min(3, len(args))
         for i in range(n):
             if args[i] not in self.Color_str_to_idx:
-                return -1
+                raise ValueError("args error.")
             args[i] = self.Color_str_to_idx[args[i]]
+            coins[args[i]] += 1
 
-        coins = container()
-        if len(args) == 1:
-            coins[args[0]] += 2
-            if self.coins[args[0]] < 4:
-                return -1
-        else:
-            for i in range(n):
-                coins[args[i]] = 1
-                if self.coins[args[i]] == 0:
-                    return -1
-        if p.take_coins(coins) < 0:  # 手上币满了
-            return -1
+        idx = coins > 1
+        if len(idx) > 0 and self.coins[:-1][idx] < 4:
+            raise ValueError("Coins number < 4")
+
+        c = self.coins[:-1] - coins
+        if len(c[c < 0]) > 0:
+            raise ValueError(f"No coins")
+
+        p.take_coins(coins)
         self.coins[:-1] -= coins
-        return 0
 
     def _redeem(self, p: Player, *args):
         # redeem
@@ -375,8 +380,30 @@ class Board:
             p.tmpcards.pop(idx)
         return ret
 
+    def quit(self, player):
+        self.players.pop(player, None)
+
     def is_end(self):
         return self._end
+
+    def _set_end(self, current_player):
+        # 每个move后判断是否结束，结束则is_end()返回True
+        if current_player == tuple(self.players.keys())[-1]:  # 当前玩家为最后一个玩家
+            score = 0
+            wp = None
+            for p in self.players.values():
+                if p.score > score:
+                    wp = p
+                    score = p.score
+            if wp is not None and wp.score >= 15:
+                self._win_msg = f'Player {wp.name} win.'
+                self._end = True
+
+    def win_msg(self):
+        return self._win_msg
+
+    def get_players(self):
+        return tuple(self.players.keys())
 
     def load(self):
         # noble_cards = cards_3 = cards_2 = cards_1 = []  # *****
@@ -425,6 +452,7 @@ class Board:
         cards = []
         assert isinstance(card_type, type)
         for line in open(fpath):
+            line = line.strip()
             if line and not line.startswith('#'):
                 cards.append(card_type(line))
         return cards
@@ -476,7 +504,9 @@ class Board:
         self.show_cards(self.noble_cards_on_board, self.Noble_icon, True)
         self.write('+----------------------------------------------------------------------------------------+')
         self.write('|   coins        {}       {}       {}       {}       {}       {}             |'.
-                   format(self.White, self.Black, self.Red, self.Blue, self.Green, self.Yellow))
+                   format(Color.Ground_Colors[0], Color.Ground_Colors[1],
+                          Color.Ground_Colors[2], Color.Ground_Colors[3],
+                          Color.Ground_Colors[4], Color.Ground_Colors[5]))
         self.write('|                  {}          {}          {}          {}          {}          {}              |'.
                    format(self.coins[0], self.coins[1], self.coins[2],
                           self.coins[3], self.coins[4], self.coins[5]))
@@ -492,13 +522,15 @@ class Board:
 
     def show_players(self):  # 要加上tmpcards信息
         self.write('|               {}      {}      {}      {}      {}      {}       total       |'.
-                   format(self.White, self.Black, self.Red, self.Blue, self.Green, self.Yellow))
+                   format(Color.Ground_Colors[0], Color.Ground_Colors[1],
+                          Color.Ground_Colors[2], Color.Ground_Colors[3],
+                          Color.Ground_Colors[4], Color.Ground_Colors[5]))
         for player in self.players.values():  # python 3.6 以后字典是有序的
             s = '|' + player.name.ljust(15)
             coins_n = 0
             cards_n = 0
-            cc = [0 for _ in range(len(self.Ground_Colors) - 1)]
-            for i in range(len(self.Ground_Colors) - 1):
+            cc = [0 for _ in range(len(Color.Ground_Colors) - 1)]
+            for i in range(len(Color.Ground_Colors) - 1):
                 s += '({}, {})    '.format(player.coins[i], player.cards[i])
                 coins_n += player.coins[i]
                 cards_n += player.cards[i]
@@ -528,7 +560,7 @@ class Board:
             if noble:
                 s += '({})     '.format(card.score) + interval1
             else:
-                s += '({}) {}'.format(card.score, self.Ground_Colors[card.color]) + interval1
+                s += '({}) {}'.format(card.score, Color.Ground_Colors[card.color]) + interval1
         if noble:
             n = 5 - len(cards)
             s += ' ' * interval * n
@@ -541,12 +573,12 @@ class Board:
         if not noble:
             self.write('|                                                                                        |')
         s = '|   costs'.ljust(21)
-        for i in range(len(self.Ground_Colors) - 1):
+        for i in range(len(Color.Ground_Colors) - 1):
             for card in cards:
                 if card.costs[i] == 0:
                     s += '      '
                 else:
-                    s += '{} {}'.format(card.costs[i], self.Ground_Colors[i])
+                    s += '{} {}'.format(card.costs[i], Color.Ground_Colors[i])
                 s += interval2
             if noble:
                 n = 5 - len(cards)
@@ -573,7 +605,7 @@ if __name__ == '__main__':
     board = Board(players)
     board.players['leo'].tmpcards.append(Card('[3,2,4,1,1] 2 3'))
     board.players['leo'].tmpcards.append(Card('[1,2,3,4,5] 3 2'))
-    board.load(N_C, cards3, cards2, cards1)
+    board.load()
     for i in range(1):
         board.show()
         print('******{}******'.format(i))
