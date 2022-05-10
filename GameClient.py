@@ -3,7 +3,6 @@ from board import Board, Player
 import threading
 
 # from chess.onlinelib import *
-from game import *
 from sockutils import *
 from lobby import Lobby
 
