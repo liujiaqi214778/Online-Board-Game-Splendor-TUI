@@ -3,19 +3,12 @@ import random
 import numpy as np
 import json
 import os
+from games.game import Game
 
 from colorama import init
 # from enum import Enum
 
 init(autoreset=True)
-
-
-def ClearCLI():
-    system = platform.system()
-    if system == u'Windows':
-        os.system('cls')
-    else:
-        os.system('clear')
 
 
 def json_dumps(*args, **kwargs):
@@ -122,7 +115,7 @@ class Player:
                     self.tmpcards[i] = Card(v)
                 return
             except:
-                raise ValueError
+                raise ValueError(f"Format parameters error. Player({name}])")
         self.name = name
         self.coins = container()
         self.cards = container()
@@ -199,15 +192,12 @@ class Player:
         return True
 
 
-class Board:
+class Board(Game):
 
     Card3_icon = '\033[35;1m***\033[0m'
     Card2_icon = '\033[31;1m* *\033[0m'
     Card1_icon = '\033[32;1m * \033[0m'
     Noble_icon = '\033[33;1m-*-\033[0m'
-
-    MaxN = 4
-    MinN = 2
 
     Color_str_to_idx = {
         'w': Color.White,
@@ -222,16 +212,10 @@ class Board:
         'green': Color.Green,
     }
 
-    Action_error_code = {
-
-    }
-
     def __init__(self, player_names):  # *** 增加输出玩家tmpcards信息, 牌库卡剩余信息
+        super(Board, self).__init__(player_names, Player)
         self.width = 90
         self.num_players = len(player_names)
-        self.players = {}
-        for name in player_names:
-            self.players[name] = Player(name)
 
         # assert 5 > self.num_players > 1
 
@@ -245,35 +229,18 @@ class Board:
         self.coins = np.array([n, n, n, n, n, 5], dtype=np.int32)
         self._end = False
 
-        self.actions = {
-            'redeem': self._redeem,
-            'r': self._redeem,
-            'take': self._take_coins,
-            't': self._take_coins,
-            'u': self._take_uni_coins,
-            'buy': self._buy,
-            'b': self._buy,
-        }
+        self.register_action(('redeem', 'r'), self._redeem)
+        self.register_action(('take', 't'), self._take_coins)
+        self.register_action(('u',), self._take_uni_coins)
+        self.register_action(('buy', 'b'), self._buy)
 
-    def move(self, action: str):  # return > 0 游戏结束 return -1: 错误的action, return < -1 其他错误
-        # action: name ins args
-        if self.is_end():
-            return
+    @classmethod
+    def max_player_n(cls):
+        return 4
 
-        info = action.split()
-        if len(info) < 2:
-            raise ValueError(f'Warning: action empty.')  # runtimeerror 要退出游戏， ValueError 为action 错误可继续move
-        name = info[0]
-        if name not in self.players:
-            raise ValueError(f'Player [{name}] is not in this game.')
-        p = self.players[name]
-        ins = info[1]
-        args = tuple(info[2:])
-        if ins not in self.actions:
-            raise ValueError(f'Warning: action [{ins}] is not exist.')
-
-        self.actions[ins](p, *args)
-        self._set_end(name)
+    @classmethod
+    def min_player_n(cls):
+        return 2
 
     def _buy(self, p: Player, *args):
         # [i] [j] ...,  [i] 级卡的从左往右数第 [j] 张
@@ -379,9 +346,6 @@ class Board:
             p.tmpcards.pop(idx)
         return ret
 
-    def quit(self, player):
-        self.players.pop(player, None)
-
     def is_end(self):
         return self._end
 
@@ -398,11 +362,8 @@ class Board:
                 self._win_msg = f'Player {wp.name} win.'
                 self._end = True
 
-    def win_msg(self):
+    def win_info(self):
         return self._win_msg
-
-    def get_players(self):
-        return tuple(self.players.keys())
 
     def load(self):
         # noble_cards = cards_3 = cards_2 = cards_1 = []  # *****

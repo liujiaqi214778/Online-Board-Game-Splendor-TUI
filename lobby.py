@@ -1,9 +1,9 @@
 # 2022/5/4  12:33  liujiaqi
 import time
 
-from board import ClearCLI, Board
+from board import Board
 from sockutils import *
-from utils import iterprint
+from utils import iterprint, ClearCLI
 import event
 
 
