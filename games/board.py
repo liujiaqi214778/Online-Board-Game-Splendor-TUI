@@ -212,7 +212,7 @@ class Board(Game):
         'green': Color.Green,
     }
 
-    def __init__(self, player_names):  # *** 增加输出玩家tmpcards信息, 牌库卡剩余信息
+    def __init__(self, player_names):  # *** 增加输出玩家tmpcards信息, 牌库卡剩余信息. return -1改成raise
         super(Board, self).__init__(player_names, Player)
         self.width = 90
         self.num_players = len(player_names)

@@ -1,0 +1,4 @@
+client有一个event线程从标准输入循环每次读入一行命令放入queue
+主线程30fps, 每一帧先从queue取指令执行再从socket检查server发送来的主动消息并响应
+
+sockutils.py 每一次传送/接收 4096字节，一个消息不足4096则补齐空格，待优化

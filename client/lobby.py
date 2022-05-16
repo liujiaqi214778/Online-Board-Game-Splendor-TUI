@@ -237,4 +237,4 @@ class Lobby:
         return -1
 
     def sendmsgtouser(self, *args):
-        pass
+        print('[send] has not been implemented.')

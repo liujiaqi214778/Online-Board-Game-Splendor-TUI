@@ -5,10 +5,10 @@ from utils import reactor
 
 class Game(reactor.Reactor):
 
-    def __init__(self, players, ptype=None):  # *** 增加输出玩家tmpcards信息, 牌库卡剩余信息
+    def __init__(self, players, ptype=None):
         super(Game, self).__init__()
-        if not isinstance(players, Iterable):
-            raise ValueError("Players should be a iterable.")
+        if not isinstance(players, tuple) or not isinstance(players, list):
+            raise ValueError("Players should be a tuple or a list.")
         if ptype is not None and not isinstance(ptype, type):
             raise ValueError("Player type is not a class type.")
         self.players = {}
@@ -80,8 +80,4 @@ class Game(reactor.Reactor):
 
 
 if __name__ == '__main__':
-    a = Game(1)
-    b = a.register_action
-    print(type(a.__init__))
-    print(isinstance(b, type(b)))
-    a.register_action('a', a.show)
+    pass
