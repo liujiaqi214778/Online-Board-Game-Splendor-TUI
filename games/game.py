@@ -1,13 +1,12 @@
 # 2022/5/10  21:54  liujiaqi
 from collections import Iterable
+from utils import reactor
 
 
-class Game:
-
-    # MaxN = 4
-    # MinN = 2
+class Game(reactor.Reactor):
 
     def __init__(self, players, ptype=None):  # *** 增加输出玩家tmpcards信息, 牌库卡剩余信息
+        super(Game, self).__init__()
         if not isinstance(players, Iterable):
             raise ValueError("Players should be a iterable.")
         if ptype is not None and not isinstance(ptype, type):
@@ -18,7 +17,6 @@ class Game:
                 self.players[p] = ptype(p)
             else:
                 self.players[p] = p
-        self.actions = {}
 
     @classmethod
     def max_player_n(cls):
@@ -28,14 +26,8 @@ class Game:
     def min_player_n(cls):
         raise NotImplementedError
 
-    def register_action(self, item, method):
-        if not isinstance(method, type(self.__init__)):
-            raise ValueError(f"Value Type [{type(method)}] is not a class method")
-        if isinstance(item, Iterable):
-            for i in item:
-                self.actions[i] = method
-        else:
-            self.actions[item] = method
+    def __call__(self, action):
+        self.move(action)
 
     def move(self, action: str):
         # action: name ins args

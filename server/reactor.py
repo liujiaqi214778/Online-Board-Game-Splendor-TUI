@@ -1,8 +1,9 @@
 # 2022/5/12  0:32  liujiaqi
-from socketutils import read, write
-from log import log
-from players import Players
-from groups import Groups
+from .socketutils import read, write
+from .log import log
+from .players import Players
+from .groups import Groups
+from utils import reactor
 
 
 def makeint(v):
@@ -13,37 +14,29 @@ def makeint(v):
     return t
 
 
-class User:
+class ServerReactor(reactor.Reactor):
     def __init__(self, sock, name, glbplayers: Players, glbgroups: Groups):
+        super(ServerReactor, self).__init__()
         self.socket = sock
         self.name = name
-        self.funcs = {
-            'pStat': self.pStat,
-            'gStat': self.gStat,
-            'join': self.join,
-            'ginfo': self.ginfo,
-            'ready': self.ready,
-            'game': self.put_msg_to_game_thread,
-        }
         self.glbplayers = glbplayers
         self.glbgroups = glbgroups
+        self.register_action('pStat', self.pStat)
+        self.register_action('gStat', self.gStat)
+        self.register_action('join', self.join)
+        self.register_action('ginfo', self.ginfo)
+        self.register_action('ready', self.ready)
+        self.register_action('game', self.put_msg_to_game_thread)
 
     def __call__(self):
         while True:
-            msg = read(self.socket)
-            if msg == "quit":
-                return
-            info = msg.split()
-            if len(info) == 0:
-                continue
-            ins = info.pop(0)
-            args = tuple(info)
-            if ins not in self.funcs:
-                log(f"Unkonw instruction [{ins}].", self.name)
-                continue
-            ret = self.funcs[ins](*args)
-            if ret is not None and ret < 0:
-                return ret
+            try:
+                msg = read(self.socket)
+                if msg == "quit":
+                    return
+                super(ServerReactor, self).__call__(msg)
+            except Exception as e:
+                log(repr(e), self.name)
 
     def put_msg_to_game_thread(self, *args):
         gid = self.glbplayers[self.name].gid
@@ -97,7 +90,16 @@ class User:
                 write(self.socket, f'Quit group {pgid}.')
         else:
             tinfo = self.glbgroups[gid]
-            if tinfo.isfull():
+            pgid = p.gid
+            if pgid is not None:
+                self.glbgroups[pgid].pop(self.name)  # 先退出原来的组
+            if tinfo.push(p):
+                log(f"Successfully joined group {gid}", self.name)
+                write(self.socket, f'Successfully joined group {gid}')
+            else:
+                write(self.socket, f'Failed to join, the group {gid} is full.')
+
+            '''if tinfo.isfull():
                 write(self.socket, f'Failed to join, the group {gid} is full.')
             else:
                 if p.gid is not None:
@@ -105,7 +107,7 @@ class User:
                 tinfo.push(p)
                 # self.glbplayers.mkbusy(self.name)
                 log(f"Successfully joined group {gid}", self.name)
-                write(self.socket, f'Successfully joined group {gid}')
+                write(self.socket, f'Successfully joined group {gid}')'''
 
     def ginfo(self, *args):
         # 限制名字<=15
@@ -120,11 +122,20 @@ class User:
         log(f"made request to group {gid} info.", self.name)
         g = self.glbgroups[gid]
         write(self.socket, f'enum {len(g) + 1}')
-        for p in g.players.values():
+
+        def genmsg(p):
             msg = p.name.ljust(20)
             if p.stat == 'r':
                 msg += 'ready'
             write(self.socket, msg)
+
+        g.players.apply(genmsg)
+
+        '''for p in g.players.values():
+            msg = p.name.ljust(20)
+            if p.stat == 'r':
+                msg += 'ready'
+            write(self.socket, msg)'''
         write(self.socket, str(gid))
 
     def ready(self, *args):

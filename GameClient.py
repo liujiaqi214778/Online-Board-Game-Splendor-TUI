@@ -1,10 +1,7 @@
 # 2022/5/3  19:30  liujiaqi
-from board import Board, Player
 import threading
-
-# from chess.onlinelib import *
-from sockutils import *
-from lobby import Lobby
+from client.sockutils import *
+from client.lobby import Lobby
 
 VERSION = "v1.0"
 PORT = 26103
@@ -76,7 +73,7 @@ def main(addr, uname, ipv6=False):
 if __name__ == '__main__':
     # ip = input("Please enter the server ip address: ")
     name = input("Please enter your username: ")
-    ip = '192.168.1.105'
+    ip = '192.168.1.107'
     # ip = '172.30.130.36'
     main(ip, name)
 

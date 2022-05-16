@@ -33,7 +33,6 @@ event = Event()
 
 
 if __name__ == '__main__':
-    from board import ClearCLI
     import time
 
     e = Event()
