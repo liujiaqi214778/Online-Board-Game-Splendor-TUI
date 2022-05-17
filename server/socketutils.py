@@ -8,14 +8,15 @@ from urllib.request import urlopen
 def read(sock, timeout=None):
     try:
         sock.settimeout(timeout)
+
         msg = sock.recv(4096).decode("utf-8").strip()
 
     except:
-        msg = "quit"
+        msg = "exit"
 
     if msg:
         return msg
-    return "quit"
+    return "exit"
 
 
 # A function to message the server, this is used instead of socket.send()

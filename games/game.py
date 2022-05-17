@@ -1,13 +1,13 @@
 # 2022/5/10  21:54  liujiaqi
 from collections import Iterable
-from utils import reactor
+from utils import actionregister
 
 
-class Game(reactor.Reactor):
+class Game(actionregister.Reactor):
 
     def __init__(self, players, ptype=None):
         super(Game, self).__init__()
-        if not isinstance(players, tuple) or not isinstance(players, list):
+        if not isinstance(players, tuple) and not isinstance(players, list):
             raise ValueError("Players should be a tuple or a list.")
         if ptype is not None and not isinstance(ptype, type):
             raise ValueError("Player type is not a class type.")
@@ -70,9 +70,6 @@ class Game(reactor.Reactor):
         raise NotImplementedError
 
     def info_on_board(self):
-        raise NotImplementedError
-
-    def all_actions(self) -> str:  # 返回所有actions的说明
         raise NotImplementedError
 
     def show(self):

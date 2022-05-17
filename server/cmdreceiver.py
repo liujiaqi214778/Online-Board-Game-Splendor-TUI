@@ -3,7 +3,7 @@ from .socketutils import read, write
 from .log import log
 from .players import Players
 from .groups import Groups
-from utils import reactor
+from utils import actionregister
 
 
 def makeint(v):
@@ -14,9 +14,9 @@ def makeint(v):
     return t
 
 
-class ServerReactor(reactor.Reactor):
+class CmdReceiver(actionregister.Reactor):
     def __init__(self, sock, name, glbplayers: Players, glbgroups: Groups):
-        super(ServerReactor, self).__init__()
+        super(CmdReceiver, self).__init__()
         self.socket = sock
         self.name = name
         self.glbplayers = glbplayers
@@ -32,9 +32,9 @@ class ServerReactor(reactor.Reactor):
         while True:
             try:
                 msg = read(self.socket)
-                if msg == "quit":
+                if msg == "exit":
                     return
-                super(ServerReactor, self).__call__(msg)
+                super(CmdReceiver, self).__call__(msg)
             except Exception as e:
                 log(repr(e), self.name)
 

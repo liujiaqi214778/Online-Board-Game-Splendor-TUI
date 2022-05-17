@@ -12,7 +12,7 @@ import socket
 import threading
 from server.log import log, LOG, logThread
 from server.socketutils import write, read, getIp
-from server.reactor import ServerReactor
+from server.cmdreceiver import CmdReceiver
 from server.manager import ServerManager
 
 # These are constants that can be modified by users. Default settings
@@ -130,7 +130,7 @@ def initPlayerThread(sock):
             log(f"Connection Successful, user name - {name}")
 
             write(sock, "succ")
-            ServerReactor(sock, name, glbManager.players, glbManager.groups)()
+            CmdReceiver(sock, name, glbManager.players, glbManager.groups)()
             write(sock, "close")
             log(f"Player {name} has Quit")
 

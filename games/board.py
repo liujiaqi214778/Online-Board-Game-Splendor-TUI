@@ -229,10 +229,10 @@ class Board(Game):
         self.coins = np.array([n, n, n, n, n, 5], dtype=np.int32)
         self._end = False
 
-        self.register_action(('redeem', 'r'), self._redeem)
-        self.register_action(('take', 't'), self._take_coins)
-        self.register_action(('u',), self._take_uni_coins)
-        self.register_action(('buy', 'b'), self._buy)
+        self.register_action(('redeem', 'r'), self._redeem, "args[1-3]. Redeem one of your tmp card.")
+        self.register_action(('take', 't'), self._take_coins, "args[lowercases of colors]")
+        self.register_action(('u',), self._take_uni_coins, "take uni coin, [x 1-3],[y 1-4 or none] choose a card")
+        self.register_action(('buy', 'b'), self._buy, "[x 1-3] [y 1-4] buy a card")
 
     @classmethod
     def max_player_n(cls):
@@ -449,9 +449,6 @@ class Board(Game):
             info += str(card) + '|'
         info.removesuffix('|')
         return info'''
-
-    def all_actions(self):  # 返回所有actions
-        pass
 
     @staticmethod
     def write(msg):

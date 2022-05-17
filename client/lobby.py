@@ -17,7 +17,7 @@ class Lobby:
             'help': self.showlobbyhelp,
             'join': self.joingroup,
             'refresh': self.refresh,
-            'quit': self.quitserver,
+            # 'quit': self.quitserver,
             'exit': self.quitserver,
             'players': self.showplayers,
             'groups': self.showgroups,
@@ -70,7 +70,7 @@ class Lobby:
         print('[join] [group no.] to join a group. If gid is out of range, that means quit current group.')
         print('[send] [user ID or user name] to send a message.')
         print('[refresh] to refresh the lobby, show all players and groups.')
-        print('[quit] or [exit] to disconnect the server.')
+        print('[exit] to disconnect the server.')
         print('[players] to display all online players.')
         print('[groups] to display all groups on server (no more than 30).')
         print('[ginfo] [gid] show gid info. If gid is None, show the info of the group you joined.')
@@ -101,18 +101,30 @@ class Lobby:
     def game(self, *args):
         print('start game....')
         time.sleep(3)
-        board = Board([])
+        board = Board([])  # 改成服务器发来游戏类型
+        # print('Game actions:')
+        # print(board.all_actions())
         t = 1 / self.fps
+        timer = None
         while True:
             if isDead():
                 return
             time.sleep(t)
             info = event.event.get()  # event线程接收标准输入的指令
             if info:
-                write(self.socket, 'game ' + info)
                 if info.startswith('quit'):
+                    write(self.socket, 'game quit')  # 如果不是自己回合quit，服务器会刷新计时器*****待解决
                     print('Quit the game...')
                     return
+                if timer is not None:
+                    if time.time() - timer < 60:
+                        if board.try_action(info):  # 本地能action server应该也能，总之最终标准在server
+                            write(self.socket, 'game ' + info)
+                            timer = None
+                    else:
+                        timer = None
+                else:
+                    pass
 
             msg = active_msg_reciever.read()
             if msg is None:
@@ -125,8 +137,9 @@ class Lobby:
                     print(f'update_board error, json:\n {msg[5:]}')
                     return
                 board.show()
-            elif msg.startswith('action'):
+            elif msg.startswith('action'):  # 后面加上限制时间
                 print("It's your turn. Action or help.")
+                timer = time.time()
                 continue
             elif msg.startswith('gend'):
                 print(msg[4:].strip())
@@ -233,7 +246,7 @@ class Lobby:
         return 0
 
     def quitserver(self, *args):
-        write(self.socket, "quit")
+        write(self.socket, "exit")
         return -1
 
     def sendmsgtouser(self, *args):
