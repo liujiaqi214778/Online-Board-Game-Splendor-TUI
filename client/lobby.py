@@ -4,77 +4,70 @@ import time
 from games.board import Board
 from .sockutils import *
 from utils.utils import iterprint, ClearCLI
-from utils import event
+from utils import event, actionregister
 
 
-class Lobby:
+class Lobby(actionregister.ActionRegister):
     def __init__(self, sock, name):
+        super(Lobby, self).__init__()
         self.socket = sock
         self.username = name
         self.width = 90
         self.fps = 30
-        self.lobby_instructions = {
-            'help': self.showlobbyhelp,
-            'join': self.joingroup,
-            'refresh': self.refresh,
-            # 'quit': self.quitserver,
-            'exit': self.quitserver,
-            'players': self.showplayers,
-            'groups': self.showgroups,
-            'send': self.sendmsgtouser,
-            'ginfo': self.groupinfo,
-            'ready': self.ready,
-        }
+
+        # 所有注册的方法重写下，不要read
+        self.register_action('help', self.showlobbyhelp)
+        self.register_action('join', self.joingroup,
+                             'args[group no.] to join a group. If gid is out of range, that means quit current group.')
+        self.register_action('refresh', self.refresh, 'refresh the lobby, show all players and groups.')
+        self.register_action('exit', self.quitserver, 'disconnect the server.')
+        self.register_action('players', self.showplayers, 'display all online players.')
+        self.register_action('groups', self.showgroups, 'display all groups on server (no more than 30).')
+        self.register_action('send', self.sendmsgtouser)
+        self.register_action('ginfo', self.groupinfo,
+                             ' args[gid] show gid info. If gid is None, show the info of the group you joined.')
+        self.register_action('ready', self.ready,
+                             "Update your status to 'ready' if you are in a group. Undo ready if you are ready.")
         self.refresh()
 
     def __call__(self):
         print('Type [help] for more instructions...')
-        event.event.start()
         t = 1 / self.fps
-        ret = 0
         while True:
             if isDead():
                 return -1
             time.sleep(t)
             # info = input()
             info = event.event.get()  # event线程接收标准输入的指令
-            if info is not None:
-                info = info.split()
-                if len(info) == 0:
-                    continue
-                ins = info.pop(0)
-                args = tuple(info)
-                if ins not in self.lobby_instructions:
-                    print('Error... [{}] is not exist.'.format(ins))
-                    self.lobby_instructions['help']()
-                    continue
-                r = self.lobby_instructions[ins](*args)
-                if r is not None and r < 0:
-                    ret = r
-                    break
+            if info:
+                try:
+                    super(Lobby, self).__call__(info)
+                except ValueError as e:
+                    print(str(e))
+                    # print('Type [help] for more instructions...')
+                except Exception as e:
+                    print(str(e))
+                    return -1
 
             msg = active_msg_reciever.read()
             if msg is not None:
                 if msg == "close":
-                    ret = -1
-                    break
+                    return -1
                 if msg.startswith('gstart'):
                     self.game()
                 else:
                     print(msg)
-        event.event.end()
-        return ret
 
-    @classmethod
-    def showlobbyhelp(cls, *args):
-        print('[join] [group no.] to join a group. If gid is out of range, that means quit current group.')
+    def showlobbyhelp(self, *args):
+        print(self.all_actions())
+        '''print('[join] [group no.] to join a group. If gid is out of range, that means quit current group.')
         print('[send] [user ID or user name] to send a message.')
         print('[refresh] to refresh the lobby, show all players and groups.')
         print('[exit] to disconnect the server.')
         print('[players] to display all online players.')
         print('[groups] to display all groups on server (no more than 30).')
         print('[ginfo] [gid] show gid info. If gid is None, show the info of the group you joined.')
-        print("[ready] Update your status to 'ready' if you are in a group. Undo ready if you are ready.")
+        print("[ready] Update your status to 'ready' if you are in a group. Undo ready if you are ready.")'''
 
     def groupinfo(self, *args):
         # all players in same group, and is or not ready.
@@ -86,10 +79,9 @@ class Lobby:
                 gid = ''
         msglist = getmsgall(self.socket, f'ginfo {gid}')
         if msglist is None:
-            return -2
+            raise RuntimeError('ginfo get none from server.')
         if len(msglist) == 0:
-            print("You haven't joined any group yet.")
-            return 0
+            raise ValueError("You haven't joined any group yet.")
         self._showginfo(msglist)
 
     def ready(self, *args):
@@ -100,7 +92,7 @@ class Lobby:
 
     def game(self, *args):
         print('start game....')
-        time.sleep(3)
+        time.sleep(1)
         board = Board([])  # 改成服务器发来游戏类型
         # print('Game actions:')
         # print(board.all_actions())
@@ -116,15 +108,22 @@ class Lobby:
                     write(self.socket, 'game quit')  # 如果不是自己回合quit，服务器会刷新计时器*****待解决
                     print('Quit the game...')
                     return
-                if timer is not None:
+                if info.startswith('help'):
+                    print(board.all_actions())
+                elif timer is not None:  # game action
                     if time.time() - timer < 60:
-                        if board.try_action(info):  # 本地能action server应该也能，总之最终标准在server
+                        # if board.try_action(info):  # 本地能action server应该也能，总之最终标准在server
+                        try:
+                            board(self.username + ' ' + info)
                             write(self.socket, 'game ' + info)
                             timer = None
+                        except ValueError as e:
+                            print(str(e))
+                        except Exception as e:
+                            print(str(e))
+                            return
                     else:
-                        timer = None
-                else:
-                    pass
+                        timer = None  # 超时
 
             msg = active_msg_reciever.read()
             if msg is None:
@@ -158,22 +157,19 @@ class Lobby:
 
     def joingroup(self, *args):
         if len(args) == 0:
-            print('There is no group number behind [join].')
-            return 0
+            raise ValueError('There is no group number behind [join].')
         # server 一个group -> 一个board -> 多个user
         try:
             gid = int(args[0])
         except:
-            print('Table id should be a number.')
-            return 0
+            raise ValueError('Table id should be a number.')
         write(self.socket, f"join {gid}")
         msg = read()
         if msg == 'close':
-            return -1
+            raise RuntimeError("Quit server.")
         self.refresh()
         self.groupinfo()
         print(msg)
-        return 0
 
     def refresh(self, *args):
         ClearCLI()
@@ -183,7 +179,7 @@ class Lobby:
     def showplayers(self, *args):
         playerlist = getmsgall(self.socket, 'pStat')
         if playerlist is None:
-            return -2
+            raise RuntimeError('ginfo get none from server.')
         # player info : name, status, group(if busy)
         width = 90
         print('+' + '-' * (width - 2) + '+')
@@ -212,12 +208,11 @@ class Lobby:
         if newline:
             print(s.ljust(89) + '|')
         print('+' + '-' * (width - 2) + '+')
-        return 0
 
     def showgroups(self, *args):
         groups = getmsgall(self.socket, 'gStat')
         if groups is None:
-            return -2
+            raise RuntimeError('ginfo get none from server.')
         width = 90
         # group info: id, 人数,
         # 服务器重启开4个桌
@@ -247,7 +242,7 @@ class Lobby:
 
     def quitserver(self, *args):
         write(self.socket, "exit")
-        return -1
+        raise RuntimeError("")
 
     def sendmsgtouser(self, *args):
         print('[send] has not been implemented.')

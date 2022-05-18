@@ -103,7 +103,7 @@ def write(sock, msg):
             pass
 
 
-def getmsgall(sock, msg='pStat'):
+def getmsgall(sock, msg='pStat'):  # 即将弃用
     if not flush():
         return None
 

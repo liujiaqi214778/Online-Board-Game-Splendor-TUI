@@ -46,6 +46,8 @@ class Group(threading.Thread):
         if p is not None:
             p.gid = None
             p.stat = 'a'  # 退组自动active
+            if name == self.current_player:  # 玩家用其他方式退出了group
+                self.queue.put('')  # 防止线程继续阻塞
         return p
 
     '''def isfull(self):
@@ -67,14 +69,15 @@ class Group(threading.Thread):
 
     def run(self) -> None:
         self.game()
+        self.queue = None
         # super(GroupInfo, self).__init__()
 
-    def restart(self):
+    def start(self):
         if self.is_alive():
             raise RuntimeError("Game is already started")
         super(Group, self).__init__()
         self.queue = queue.Queue()  # 由receiver线程发送，包括name
-        self.start()
+        super(Group, self).start()
 
     def game(self):
         # game 和其他函数由不同线程执行，考虑下self.players操作的线程安全
@@ -90,7 +93,7 @@ class Group(threading.Thread):
 
         self._send_msg_to_clients('gstart')
         self._send_board_to_clients(board)
-        self._send_actions_to_clients(board)  # client自己输出
+        self._send_actions_to_clients(board)
         round_n = 0
         while True:
             if len(self.players) < self.MinN:
@@ -141,8 +144,6 @@ class Group(threading.Thread):
                 p = self.pop(name)  # read_action过程中只接受其他玩家的quit请求
                 if p is not None:
                     self._send_msg_to_clients(f'Player {name} quit the game')
-                if name == self.current_player:
-                    self.queue.put('')  # 防止线程继续阻塞
 
             elif name == self.current_player:
                 self.queue.put(name + ' ' + msg)
@@ -155,17 +156,18 @@ class Group(threading.Thread):
         self.current_player = p.name
         write(p.socket, 'action', True)  # action后面加等待时间
         time.sleep(1)
-
+        msg = None
         try:
             # 中途有其他信息会刷新计时器，client增加发送游戏指令前判断
             # put_player_msg只接受current player信息
             msg = self.queue.get(timeout=timeout)
             if not msg:
                 msg = None
-            return msg
         except:
             self._send_player_timeout_msg(p)
-            return None
+
+        self.current_player = None
+        return msg
 
     def _send_msg_to_clients(self, msg):
         for name in self.players.get_players():

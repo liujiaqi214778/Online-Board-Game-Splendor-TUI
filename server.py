@@ -130,7 +130,7 @@ def initPlayerThread(sock):
             log(f"Connection Successful, user name - {name}")
 
             write(sock, "succ")
-            CmdReceiver(sock, name, glbManager.players, glbManager.groups)()
+            CmdReceiver(sock, name, glbManager)()
             write(sock, "close")
             log(f"Player {name} has Quit")
 

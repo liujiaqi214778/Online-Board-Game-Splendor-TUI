@@ -2,7 +2,7 @@
 from collections import Iterable
 
 
-class Reactor:  # 改个名 ActionRegister
+class ActionRegister:  # 改个名 ActionRegister
     def __init__(self):
         self.actions = {}
         self.desc = []
@@ -58,11 +58,8 @@ class Reactor:  # 改个名 ActionRegister
         ins = info.pop(0)
         args = tuple(info)
         if ins not in self.actions:
-            raise ValueError(f'Action [{ins}] is not exist.')
+            raise ValueError(f'class {type(self).__name__}: action [{ins}] is not exist.')
         return ins, args
 
     def __str__(self):
         return self.all_actions()
-
-
-ActionRegister = Reactor

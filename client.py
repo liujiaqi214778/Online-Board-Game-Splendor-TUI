@@ -2,6 +2,7 @@
 import threading
 from client.sockutils import *
 from client.lobby import Lobby
+from utils.event import event
 
 VERSION = "v1.0"
 PORT = 26103
@@ -53,7 +54,9 @@ def main(addr, uname, ipv6=False):
         print(ERR[5])
 
     elif msg.startswith("succ"):
+        event.start()
         ret = Lobby(sock, uname)()
+        event.end()
 
     else:
         print(msg)
@@ -73,7 +76,7 @@ def main(addr, uname, ipv6=False):
 if __name__ == '__main__':
     # ip = input("Please enter the server ip address: ")
     name = input("Please enter your username: ")
-    ip = '192.168.1.107'
+    ip = '192.168.1.110'
     # ip = '172.30.130.36'
     main(ip, name)
 

@@ -3,7 +3,7 @@ from collections import Iterable
 from utils import actionregister
 
 
-class Game(actionregister.Reactor):
+class Game(actionregister.ActionRegister):
 
     def __init__(self, players, ptype=None):
         super(Game, self).__init__()

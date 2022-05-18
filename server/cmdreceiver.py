@@ -4,6 +4,7 @@ from .log import log
 from .players import Players
 from .groups import Groups
 from utils import actionregister
+from .manager import ServerManager
 
 
 def makeint(v):
@@ -14,13 +15,14 @@ def makeint(v):
     return t
 
 
-class CmdReceiver(actionregister.Reactor):
-    def __init__(self, sock, name, glbplayers: Players, glbgroups: Groups):
+class CmdReceiver(actionregister.ActionRegister):
+    def __init__(self, sock, name, glbmanager: ServerManager):
         super(CmdReceiver, self).__init__()
         self.socket = sock
         self.name = name
-        self.glbplayers = glbplayers
-        self.glbgroups = glbgroups
+        self.glbplayers = glbmanager.players
+        self.glbgroups = glbmanager.groups
+        self.glbmanager = glbmanager
         self.register_action('pStat', self.pStat)
         self.register_action('gStat', self.gStat)
         self.register_action('join', self.join)
@@ -33,6 +35,7 @@ class CmdReceiver(actionregister.Reactor):
             try:
                 msg = read(self.socket)
                 if msg == "exit":
+                    self.glbmanager.clearplayerinfo(self.name)
                     return
                 super(CmdReceiver, self).__call__(msg)
             except Exception as e:
@@ -151,7 +154,7 @@ class CmdReceiver(actionregister.Reactor):
             # if not g.is_alive() and g.ifstart():
             if g.ifstart():
                 try:
-                    g.restart()
+                    g.start()
                 except Exception as e:
                     log(repr(e), self.name)
                     write(self.socket, "Game is already started.", True)

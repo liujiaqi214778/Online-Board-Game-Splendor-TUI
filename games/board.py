@@ -155,10 +155,9 @@ class Player:
 
     def take_uni_coin(self, card: Card):
         if len(self.tmpcards) == 3:
-            return -1
+            raise ValueError("You alreay have 3 tmp cards.")
         self.uni_coins += 1
         self.tmpcards.append(card)
-        return 0
 
     def buy(self, card: Card, noble_cards, all_coins):
         # t = self.vals - card.costs
@@ -269,8 +268,12 @@ class Board(Game):
     def _take_uni_coins(self, p: Player, *args):
         # [i] [j] ...,  [i] 级卡的从左往右数第 [j] 张
         # [i], 盲抵第i类卡
-        if len(args) == 0 or self.coins[-1] == 0 or len(p.tmpcards) == 3:
-            return -1
+        if len(args) == 0:
+            raise ValueError("empty args.")
+        if self.coins[-1] == 0:
+            raise ValueError("you have no uni coin.")
+        if len(p.tmpcards) == 3:
+            raise ValueError("your already have 3 tmp cards.")
         if len(args) == 1:  # 随机在牌库选一张
             card_type = -1
             try:
@@ -278,9 +281,9 @@ class Board(Game):
             except:
                 pass
             if card_type < 0 or card_type > 2:
-                return -1
+                raise ValueError("Index error, card type should be 1-3.")
             if len(self.cards[card_type]) == 0:  # 这种类型的卡已经用完了
-                return -1
+                raise ValueError(f"There are no type {card_type + 1} cards left.")
             card = self.cards[card_type].pop()  # 盲抵一手  ******判断牌库信息
         else:
             args = list(args)
@@ -288,13 +291,12 @@ class Board(Game):
                 try:
                     args[i] = int(args[i]) - 1
                 except:
-                    return -1
+                    raise ValueError("Args type error. Two args should be int.")
             if args[0] < 0 or args[0] > 2 or args[1] < 0 or args[1] >= len(self.cards_on_board[args[0]]):
-                return -1
+                raise ValueError(f"Index error. [x] range 1-3, [y] range 1-4.")
             card = self.cards_on_board[args[0]].pop(args[1])  # ******判断牌库信息
 
-        if p.take_uni_coin(card) < 0:  # 应该不会<0
-            return -1
+        p.take_uni_coin(card)
         self.coins[-1] -= 1
 
     def _take_coins(self, p: Player, *args):
@@ -339,12 +341,9 @@ class Board(Game):
             except:
                 pass
         if idx >= len(p.tmpcards) or idx < 0:
-            return -1
-        ret = p.buy(p.tmpcards[idx], self.noble_cards_on_board, self.coins)
-        if not ret < 0:
-            # self.coins += p.tmpcards[idx].costs
-            p.tmpcards.pop(idx)
-        return ret
+            raise ValueError(f"Index [{idx + 1}] error, you have only {len(p.tmpcards)} tmp cards.")
+        p.buy(p.tmpcards[idx], self.noble_cards_on_board, self.coins)
+        p.tmpcards.pop(idx)
 
     def is_end(self):
         return self._end
