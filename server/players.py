@@ -1,4 +1,5 @@
 # 2022/5/12  0:36  liujiaqi
+from utils.readerswriters import ReadersWriters
 
 
 class PlayerInfo:
@@ -19,15 +20,18 @@ class PlayerInfo:
         return self.st[self.stat]
 
 
-class Players:
+class Players(ReadersWriters):
     def __init__(self, n=30):  # 加入线程安全
+        super(Players, self).__init__()
         self.maxn = n
         self.players = {}
 
+    @ReadersWriters.writer
     def push(self, name, sock):
         if not self.isfull() and name not in self.players:
             self.players[name] = PlayerInfo(sock, name)
 
+    @ReadersWriters.writer
     def pushp(self, p):
         assert isinstance(p, PlayerInfo)
         if not self.isfull() and p.name not in self.players:
@@ -35,21 +39,26 @@ class Players:
             return True
         return False
 
+    @ReadersWriters.writer
     def pop(self, name):
         return self.players.pop(name, None)
 
+    @ReadersWriters.reader
     def apply(self, func):  # 线程安全地处理元素
         for p in self.players.values():
             func(p)
 
+    @ReadersWriters.reader
     def apply_while_true(self, func):
         for p in self.players.values():
             if not func(p):
                 return
 
+    @ReadersWriters.reader
     def get_players(self):
         return tuple(self.players.keys())
 
+    @ReadersWriters.reader
     def __getitem__(self, item):
         if item in self.players:
             return self.players[item]
@@ -58,12 +67,14 @@ class Players:
     def isfull(self):
         return len(self.players) == self.maxn
 
+    @ReadersWriters.reader
     def isbusy(self, name):
         p = self[name]
         if p is None:
             return False
         return p.stat != 'a'
 
+    @ReadersWriters.reader
     def busyn(self):
         cnt = 0
         for p in self.players.values():
@@ -71,8 +82,10 @@ class Players:
                 cnt += 1
         return cnt
 
+    @ReadersWriters.writer
     def reset(self):
-        self.__init__(self.maxn)
+        # self.__init__(self.maxn)
+        self.players = {}
 
     '''def mkbusy(self, name):
         self._set_stat(name, 'b')
