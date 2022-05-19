@@ -4,6 +4,7 @@ import numpy as np
 import json
 import os
 from games.game import Game
+from . import GAME_REGISTRY
 
 from colorama import init
 # from enum import Enum
@@ -191,7 +192,8 @@ class Player:
         return True
 
 
-class Board(Game):
+@GAME_REGISTRY.register()
+class Splendor(Game):
 
     Card3_icon = '\033[35;1m***\033[0m'
     Card2_icon = '\033[31;1m* *\033[0m'
@@ -212,7 +214,7 @@ class Board(Game):
     }
 
     def __init__(self, player_names):  # *** 增加输出玩家tmpcards信息, 牌库卡剩余信息. return -1改成raise
-        super(Board, self).__init__(player_names, Player)
+        super(Splendor, self).__init__(player_names, Player)
         self.width = 90
         self.num_players = len(player_names)
 
@@ -558,7 +560,7 @@ if __name__ == '__main__':
     cards2 = [Card(cost, Color.Red, 1) for _ in range(10)]
     cards1 = [Card(cost, i % 5, 1) for i in range(10)]
     players = ['liujiaqi', 'leo', 'abc', 'transformer']
-    board = Board(players)
+    board = Splendor(players)
     board.players['leo'].tmpcards.append(Card('[3,2,4,1,1] 2 3'))
     board.players['leo'].tmpcards.append(Card('[1,2,3,4,5] 3 2'))
     board.load()

@@ -1,6 +1,5 @@
 # 2022/5/12  0:38  liujiaqi
-from games.board import Board
-
+from games import GAME_REGISTRY
 
 # 2022/5/11  23:47  liujiaqi
 import threading
@@ -22,9 +21,9 @@ class Group(threading.Thread):
         super(Group, self).__init__()
         self.gid = gid
         self.queue = None
-        self.Board = game
-        self.MaxN = self.Board.max_player_n()
-        self.MinN = self.Board.min_player_n()
+        self.Game = game
+        self.MaxN = self.Game.max_player_n()
+        self.MinN = self.Game.min_player_n()
         self.players = Players(n=self.MaxN)
         self.current_player = None
 
@@ -85,15 +84,15 @@ class Group(threading.Thread):
         random.shuffle(names)
         self.current_player = None
         try:
-            board = self._init_game(names)
+            gameobj = self._init_game(names)
         except Exception as e:
             self._send_msg_to_clients('Init Game Error:')
             self._send_msg_to_clients(repr(e))
             return
 
-        self._send_msg_to_clients('gstart')
-        self._send_board_to_clients(board)
-        self._send_actions_to_clients(board)
+        self._send_msg_to_clients(f'gstart {self.Game.__name__}')
+        self._send_board_to_clients(gameobj)
+        self._send_actions_to_clients(gameobj)
         round_n = 0
         while True:
             if len(self.players) < self.MinN:
@@ -103,23 +102,23 @@ class Group(threading.Thread):
                 return
             round_n += 1
             self._send_msg_to_clients(f'round {round_n}')
-            for i, n in enumerate(board.get_players()):
+            for i, n in enumerate(gameobj.get_players()):
                 p = self[n]
                 if p is None:  # 中途有玩家退出
-                    board.quit(n)
+                    gameobj.quit(n)
                     continue
                 # timout = 60
                 action = self._read_action(p)
                 if action is None:  # 超时或当前玩家退出
-                    self._send_board_to_clients(board)
+                    self._send_board_to_clients(gameobj)
                     continue
                 log(f" action: [{action}]", p.name)
                 self._send_msg_to_clients(f"Player {action}")
                 try:
-                    self._game_move(board, action)
-                    self._send_board_to_clients(board)
-                    if self._game_end(board):
-                        self._send_end_info_to_clients(board)
+                    self._game_move(gameobj, action)
+                    self._send_board_to_clients(gameobj)
+                    if self._game_end(gameobj):
+                        self._send_end_info_to_clients(gameobj)
                         return
                 except ValueError as e:  # 单个玩家的action有问题，不影响游戏
                     # write(p.socket, str(e), True)  # ***改成让该玩家重新输入3次
@@ -129,9 +128,9 @@ class Group(threading.Thread):
                     return
         # self.queue = None
 
-    def _send_actions_to_clients(self, board):
+    def _send_actions_to_clients(self, gameobj):
         msg = 'Game actions:\n'
-        msg += board.all_actions()
+        msg += gameobj.all_actions()
         self._send_msg_to_clients(msg)
 
     def put_player_msg(self, name, msg):
@@ -178,8 +177,8 @@ class Group(threading.Thread):
     def _send_player_timeout_msg(self, p):
         pass
 
-    def _game_move(self, board, action):
-        board.move(action)
+    def _game_move(self, gameobj, action):
+        gameobj.move(action)
 
         '''if game_stat < 0:  # 错误的action
             log(f" Action Error [{action}]")
@@ -191,33 +190,33 @@ class Group(threading.Thread):
             return 1
         return 0'''
 
-    def _game_end(self, board):
-        return board.is_end()
+    def _game_end(self, gameobj):
+        return gameobj.is_end()
 
     def _init_game(self, names):
         # 要处理异常
         log(f"Group {self.gid} init game.")
-        board = self.Board(names)
-        '''# board.load('./configs')
+        gameobj = self.Game(names)
+        '''# gameobj.load('./configs')
         cost = container()
         cost[[0, 2, 3]] = 2
         N_C = [NobleCard(cost) for _ in range(10)]
         cards3 = [Card(cost, Color.Red, 1) for i in range(10)]
         cards2 = [Card(cost, Color.Red, 1) for _ in range(10)]
         cards1 = [Card(cost, i % 5, 1) for i in range(10)]
-        board.load(N_C, cards3, cards2, cards1)'''
-        board.load()
-        return board
+        gameobj.load(N_C, cards3, cards2, cards1)'''
+        gameobj.load()
+        return gameobj
 
-    def _send_board_to_clients(self, board):
-        msg = board.info_on_board()
+    def _send_board_to_clients(self, gameobj):
+        msg = gameobj.info_on_board()
         log(f"send info on board: [{msg}]")
         self._send_msg_to_clients('board ' + msg)
 
-    def _send_end_info_to_clients(self, board):
+    def _send_end_info_to_clients(self, gameobj):
         log(f"Group {self.gid} game over.")
-        # self._send_board_to_clients(board)
-        self._send_msg_to_clients(f'Game over. {board.win_info()}')
+        # self._send_board_to_clients(gameobj)
+        self._send_msg_to_clients(f'Game over. {gameobj.win_info()}')
 
     def __len__(self):
         return len(self.players)
@@ -225,16 +224,16 @@ class Group(threading.Thread):
 
 class Groups:
 
-    def __init__(self, n=30):
+    def __init__(self, n=30):  # 改成 cfg.GAME.NAMES, cfg.MAX_GROUPS_N
         self.maxn = n
         # 改为配置文件读游戏类型
-        self.groups = [Group(i, Board) for i in range(4)]
+        gtype = GAME_REGISTRY.get('Splendor')
+        self.groups = [Group(i, gtype) for i in range(4)]
 
-    def create(self):
+    def create(self, name):
         if len(self.groups) == self.maxn:
-            return -1
-        self.groups.append(Group(len(self.groups), Board))
-        return 0
+            raise ValueError(f"Max groups number is {self.maxn}.")
+        self.groups.append(Group(len(self.groups), GAME_REGISTRY.get(name)))
 
     def reset(self):
         self.__init__(self.maxn)

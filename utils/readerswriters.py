@@ -30,7 +30,7 @@ class ReadersWriters:
                         if rself.rcount == 0:
                             rself.wmutex.release()
 
-            with ReaderContext():  # 优雅 :) with会确保__exit__后再抛出异常
+            with ReaderContext():  # with会确保__exit__后再抛出异常
                 return method(rself, *args, **kwargs)
         return wrapped
 

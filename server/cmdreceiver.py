@@ -1,8 +1,6 @@
 # 2022/5/12  0:32  liujiaqi
 from .socketutils import read, write
 from .log import log
-from .players import Players
-from .groups import Groups
 from utils import actionregister
 from .manager import ServerManager
 
@@ -112,7 +110,7 @@ class CmdReceiver(actionregister.ActionRegister):
                 log(f"Successfully joined group {gid}", self.name)
                 write(self.socket, f'Successfully joined group {gid}')'''
 
-    def ginfo(self, *args):
+    def ginfo(self, *args):  # 旧方法，建议重写
         # 限制名字<=15
         if len(args) == 0 or makeint(args[0]) is None:
             gid = self.glbplayers[self.name].gid
@@ -144,7 +142,7 @@ class CmdReceiver(actionregister.ActionRegister):
     def ready(self, *args):
         p = self.glbplayers[self.name]
         if p.gid is None:
-            write(self.socket, 'xxx')  # xxx 让client忽略消息
+            # write(self.socket, 'xxx')  # xxx 让client忽略消息
             return
         log(f" in group {p.gid} request to ready.", self.name)
         if p.stat != 'r':

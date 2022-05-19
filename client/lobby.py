@@ -1,7 +1,7 @@
 # 2022/5/4  12:33  liujiaqi
 import time
+from games import GAME_REGISTRY
 
-from games.board import Board
 from .sockutils import *
 from utils.utils import iterprint, ClearCLI
 from utils import event, actionregister
@@ -54,7 +54,7 @@ class Lobby(actionregister.ActionRegister):
                 if msg == "close":
                     return -1
                 if msg.startswith('gstart'):
-                    self.game()
+                    self.game(msg[6:].split()[0])
                 else:
                     print(msg)
 
@@ -69,7 +69,7 @@ class Lobby(actionregister.ActionRegister):
         print('[ginfo] [gid] show gid info. If gid is None, show the info of the group you joined.')
         print("[ready] Update your status to 'ready' if you are in a group. Undo ready if you are ready.")'''
 
-    def groupinfo(self, *args):
+    def groupinfo(self, *args):  # 重写
         # all players in same group, and is or not ready.
         gid = ''
         if len(args) > 0:
@@ -90,12 +90,14 @@ class Lobby(actionregister.ActionRegister):
         ClearCLI()
         self.groupinfo()
 
-    def game(self, *args):
-        print('start game....')
+    def game(self, *args):  # 单独写个类
+        gname = args[0]
+        gameobj = GAME_REGISTRY.get(gname)([])
+        print(f'start game {gname}...')
         time.sleep(1)
-        board = Board([])  # 改成服务器发来游戏类型
+        # gameobj = Splendor([])  # 改成服务器发来游戏类型
         # print('Game actions:')
-        # print(board.all_actions())
+        # print(gameobj.all_actions())
         t = 1 / self.fps
         timer = None
         while True:
@@ -105,16 +107,16 @@ class Lobby(actionregister.ActionRegister):
             info = event.event.get()  # event线程接收标准输入的指令
             if info:
                 if info.startswith('quit'):
-                    write(self.socket, 'game quit')  # 如果不是自己回合quit，服务器会刷新计时器*****待解决
+                    write(self.socket, 'game quit')  # 如果不是自己回合quit，服务器会刷新计时器*****待解决, 已解决
                     print('Quit the game...')
                     return
                 if info.startswith('help'):
-                    print(board.all_actions())
+                    print(gameobj.all_actions())
                 elif timer is not None:  # game action
                     if time.time() - timer < 60:
-                        # if board.try_action(info):  # 本地能action server应该也能，总之最终标准在server
+                        # if gameobj.try_action(info):  # 本地能action server应该也能，总之最终标准在server
                         try:
-                            board(self.username + ' ' + info)
+                            gameobj(self.username + ' ' + info)
                             write(self.socket, 'game ' + info)
                             timer = None
                         except ValueError as e:
@@ -131,11 +133,11 @@ class Lobby(actionregister.ActionRegister):
 
             if msg.startswith('board'):
                 try:
-                    board.update_board(msg[5:])
+                    gameobj.update_board(msg[5:])
                 except:
                     print(f'update_board error, json:\n {msg[5:]}')
                     return
-                board.show()
+                gameobj.show()
             elif msg.startswith('action'):  # 后面加上限制时间
                 print("It's your turn. Action or help.")
                 timer = time.time()
@@ -158,7 +160,7 @@ class Lobby(actionregister.ActionRegister):
     def joingroup(self, *args):
         if len(args) == 0:
             raise ValueError('There is no group number behind [join].')
-        # server 一个group -> 一个board -> 多个user
+        # server 一个group -> 一个game -> 多个user
         try:
             gid = int(args[0])
         except:

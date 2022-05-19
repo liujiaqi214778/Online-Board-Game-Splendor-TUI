@@ -52,11 +52,14 @@ class ActionRegister:  # 改个名 ActionRegister
             return False
 
     def parse_action(self, action):
-        info = action.split()
-        if len(info) == 0:
-            raise ValueError('Empty action.')
-        ins = info.pop(0)
-        args = tuple(info)
+        if isinstance(action, str):
+            action = action.split()
+            if len(action) == 0:
+                raise ValueError('Empty action.')
+        elif not isinstance(action, tuple):
+            raise TypeError(f'class {type(self).__name__}: action [{action}] is not a str or a tuple.')
+        ins = action[0]
+        args = action[1:]
         if ins not in self.actions:
             raise ValueError(f'class {type(self).__name__}: action [{ins}] is not exist.')
         return ins, args
