@@ -4,5 +4,3 @@ client:
 
 Server:
     所有游戏逻辑均在server实现，每个move之后调用info_on_board得到的信息发送给client，client调用update_board更新，并展示
-    game move中 raise ValueError 代表指令有误或执行的游戏指令不符合游戏规则
-        raise RuntimeError或其他 表示游戏出现严重错误必须结束

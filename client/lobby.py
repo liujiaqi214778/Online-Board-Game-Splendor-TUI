@@ -42,7 +42,7 @@ class Lobby(actionregister.ActionRegister):
             if info:
                 try:
                     super(Lobby, self).__call__(info)
-                except ValueError as e:
+                except Warning as e:
                     print(str(e))
                     # print('Type [help] for more instructions...')
                 except Exception as e:
@@ -119,9 +119,10 @@ class Lobby(actionregister.ActionRegister):
                             gameobj(self.username + ' ' + info)
                             write(self.socket, 'game ' + info)
                             timer = None
-                        except ValueError as e:
+                        except Warning as e:
                             print(str(e))
                         except Exception as e:
+                            write(self.socket, 'game quit')
                             print(str(e))
                             return
                     else:

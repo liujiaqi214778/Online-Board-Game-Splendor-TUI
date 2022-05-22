@@ -95,7 +95,7 @@ class NobleCard:
             costs = json.loads(costs)
         self.costs = np.array(costs, dtype=np.int32)
         if len(self.costs) != Color.Yellow:
-            raise ValueError
+            raise ValueError(f"NobleCard init error, args [{costs}]")
 
     def __str__(self):
         return json_dumps(self.costs)
@@ -149,14 +149,14 @@ class Player:
 
     def take_coins(self, coins):
         if sum(self.coins) + sum(coins) > 10:
-            raise ValueError(f'Your coins should <= 10. [{self.coins}] take[{coins}]')
+            raise Warning(f'Your coins should <= 10. [{self.coins}] take[{coins}]')
         self.coins += coins
         # self.vals += coins
         # return 0
 
     def take_uni_coin(self, card: Card):
         if len(self.tmpcards) == 3:
-            raise ValueError("You alreay have 3 tmp cards.")
+            raise Warning("You alreay have 3 tmp cards.")
         self.uni_coins += 1
         self.tmpcards.append(card)
 
@@ -165,7 +165,7 @@ class Player:
         t = self.coins + self.cards - card.costs
         t = sum(t[t < 0])
         if self.uni_coins + t < 0:
-            raise ValueError(f"You do not have enough money to buy it [{str(card)}]")
+            raise Warning(f"You do not have enough money to buy it [{str(card)}]")
         self.uni_coins += t
         all_coins[-1] -= t
 
@@ -246,15 +246,15 @@ class Splendor(Game):
     def _buy(self, p: Player, *args):
         # [i] [j] ...,  [i] 级卡的从左往右数第 [j] 张
         if len(args) != 2:
-            raise ValueError(f"Action [buy] error: args num should be 2. args[{args}]")
+            raise Warning(f"Action [buy] error: args num should be 2. args[{args}]")
         args = list(args)
         for i in range(2):
             try:
                 args[i] = int(args[i]) - 1
             except:
-                raise ValueError(f"args[{i}]: [{args[i]}] should be a number")
+                raise Warning(f"args[{i}]: [{args[i]}] should be a number")
         if args[0] < 0 or args[0] > 2 or args[1] < 0 or args[1] >= len(self.cards_on_board[args[0]]):
-            raise ValueError("Index Error")
+            raise Warning("Index Error")
         x, y = args[0], args[1]
         card = self.cards_on_board[x][y]
         p.buy(card, self.noble_cards_on_board, self.coins)
@@ -271,11 +271,11 @@ class Splendor(Game):
         # [i] [j] ...,  [i] 级卡的从左往右数第 [j] 张
         # [i], 盲抵第i类卡
         if len(args) == 0:
-            raise ValueError("empty args.")
+            raise Warning("empty args.")
         if self.coins[-1] == 0:
-            raise ValueError("you have no uni coin.")
+            raise Warning("you have no uni coin.")
         if len(p.tmpcards) == 3:
-            raise ValueError("your already have 3 tmp cards.")
+            raise Warning("your already have 3 tmp cards.")
         if len(args) == 1:  # 随机在牌库选一张
             card_type = -1
             try:
@@ -283,9 +283,9 @@ class Splendor(Game):
             except:
                 pass
             if card_type < 0 or card_type > 2:
-                raise ValueError("Index error, card type should be 1-3.")
+                raise Warning("Index error, card type should be 1-3.")
             if len(self.cards[card_type]) == 0:  # 这种类型的卡已经用完了
-                raise ValueError(f"There are no type {card_type + 1} cards left.")
+                raise Warning(f"There are no type {card_type + 1} cards left.")
             card = self.cards[card_type].pop()  # 盲抵一手  ******判断牌库信息
         else:
             args = list(args)
@@ -293,42 +293,42 @@ class Splendor(Game):
                 try:
                     args[i] = int(args[i]) - 1
                 except:
-                    raise ValueError("Args type error. Two args should be int.")
+                    raise Warning("Args type error. Two args should be int.")
             if args[0] < 0 or args[0] > 2 or args[1] < 0 or args[1] >= len(self.cards_on_board[args[0]]):
-                raise ValueError(f"Index error. [x] range 1-3, [y] range 1-4.")
+                raise Warning(f"Index error. [x] range 1-3, [y] range 1-4.")
             card = self.cards_on_board[args[0]].pop(args[1])  # ******判断牌库信息
 
         p.take_uni_coin(card)
         self.coins[-1] -= 1
 
-    def _take_coins(self, p: Player, *args):
+    def _take_coins(self, p: Player, *args, **kwargs):
         # take r
         # take r r
         # take r b
         # take r b g
         # r, red, R, ReD : red
         if len(args) == 0:
-            raise ValueError("args is empty.")
+            raise Warning("args is empty.")
         coins = container()
 
         args = list(args)
         n = min(3, len(args))
         for i in range(n):
             if args[i] not in self.Color_str_to_idx:
-                raise ValueError("args error.")
+                raise Warning(f"Unkown color [{args[i]}]")
             args[i] = self.Color_str_to_idx[args[i]]
             coins[args[i]] += 1
 
         idx = coins > 1
         if len(coins[idx]) > 0:
             if n == 3:
-                raise ValueError(f"args error [{args}]")  # 拿了两个相同的币+1个其他币
+                raise Warning(f"args error [{args}]")  # 拿了两个相同的币+1个其他币
             if self.coins[:-1][idx] < 4:
-                raise ValueError("Coins number < 4")  # 要拿两个币但是剩余硬币<4
+                raise Warning("Coins number < 4")  # 要拿两个币但是剩余硬币<4
 
         c = self.coins[:-1] - coins
         if len(c[c < 0]) > 0:
-            raise ValueError(f"No coins")
+            raise Warning(f"No coins")
 
         p.take_coins(coins)
         self.coins[:-1] -= coins
@@ -343,7 +343,7 @@ class Splendor(Game):
             except:
                 pass
         if idx >= len(p.tmpcards) or idx < 0:
-            raise ValueError(f"Index [{idx + 1}] error, you have only {len(p.tmpcards)} tmp cards.")
+            raise Warning(f"Index [{idx + 1}] error, you have only {len(p.tmpcards)} tmp cards.")
         p.buy(p.tmpcards[idx], self.noble_cards_on_board, self.coins)
         p.tmpcards.pop(idx)
 

@@ -62,7 +62,7 @@ def main(addr, uname, ipv6=False):
         print(msg)
         print(ERR[-1])
 
-    write(sock, "quit")
+    write(sock, "exit")
     sock.close()
     thread.join()
     flush()
@@ -76,6 +76,6 @@ def main(addr, uname, ipv6=False):
 if __name__ == '__main__':
     # ip = input("Please enter the server ip address: ")
     name = input("Please enter your username: ")
-    ip = '192.168.1.110'
+    ip = '192.168.31.58'
     # ip = '172.30.130.36'
     main(ip, name)
