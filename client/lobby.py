@@ -81,7 +81,7 @@ class Lobby(actionregister.ActionRegister):
         if msglist is None:
             raise RuntimeError('ginfo get none from server.')
         if len(msglist) == 0:
-            raise ValueError("You haven't joined any group yet.")
+            raise Warning("You haven't joined any group yet.")
         self._showginfo(msglist)
 
     def ready(self, *args):

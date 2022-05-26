@@ -82,7 +82,7 @@ class ActionRegister:
         ins = action[0]
         args = action[1:]
         if ins not in self._actions:
-            raise ValueError(f'class {type(self).__name__}: action [{ins}] is not exist.')
+            raise ValueError(f'class {type(self).__name__}: action [{ins}] not registered.')
         return ins, args, {}'''
 
     def parse_action(self, action, transform=None):
@@ -90,7 +90,7 @@ class ActionRegister:
             transform = self._transform
         key, args, kwargs = transform.loads(action)
         if key not in self._actions:
-            raise Warning(f'{type(self).__name__}: action [{key}] is not exist.')
+            raise Warning(f'{type(self).__name__}: action [{key}] not registered.')
         return key, args, kwargs
 
     def __str__(self):

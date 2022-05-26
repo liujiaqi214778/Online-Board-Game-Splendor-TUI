@@ -46,7 +46,7 @@ class Group(threading.Thread):
             p.gid = None
             p.stat = 'a'  # 退组自动active
             if name == self.current_player:  # 玩家用其他方式退出了group
-                self.queue.put('')  # 防止线程继续阻塞
+                self.queue.put(p.name)  # 防止线程继续阻塞
         return p
 
     '''def isfull(self):
@@ -98,7 +98,7 @@ class Group(threading.Thread):
             if len(self.players) < self.MinN:
                 # 发送中途结束消息
                 log(f"group {self.gid} game 中途结束")
-                self._send_msg_to_clients('Not enough players, game over.')
+                self._send_msg_to_clients('gend Not enough players, game over.')
                 return
             round_n += 1
             self._send_msg_to_clients(f'round {round_n}')
@@ -120,11 +120,12 @@ class Group(threading.Thread):
                     if self._game_end(gameobj):
                         self._send_end_info_to_clients(gameobj)
                         return
-                except ValueError as e:  # 单个玩家的action有问题，不影响游戏
-                    # write(p.socket, str(e), True)  # ***改成让该玩家重新输入3次
+                except Warning as e:  # 单个玩家的action有问题，不影响游戏
+                    # 2022/05/19 client判断action后再发送到server，这里基本不会走进来
+                    # write(p.socket, str(e), True)
                     self._send_msg_to_clients(str(e))
                 except Exception as e:
-                    self._send_msg_to_clients(f'Game Error, [{repr(e)}].\nGame Over')
+                    self._send_msg_to_clients(f'gend Game Error, [{repr(e)}].\nGame Over')
                     return
         # self.queue = None
 
@@ -140,7 +141,7 @@ class Group(threading.Thread):
             return -1
         if msg:
             if msg == 'quit':
-                p = self.pop(name)  # read_action过程中只接受其他玩家的quit请求
+                p = self.pop(name)  # read_action过程中对其他玩家只接受quit请求
                 if p is not None:
                     self._send_msg_to_clients(f'Player {name} quit the game')
 
@@ -156,26 +157,38 @@ class Group(threading.Thread):
         write(p.socket, 'action', True)  # action后面加等待时间
         time.sleep(1)
         msg = None
-        try:
-            # 中途有其他信息会刷新计时器，client增加发送游戏指令前判断
-            # put_player_msg只接受current player信息
-            msg = self.queue.get(timeout=timeout)
-            if not msg:
-                msg = None
-        except:
-            self._send_player_timeout_msg(p)
+        while True:
+            try:
+                # 中途有其他信息会刷新计时器, 在put_player_msg只接受current player信息
+                # client增加发送游戏指令前判断
+                msg = self.queue.get(timeout=timeout)
+                if not msg.startswith(p.name):
+                    continue
+                if not msg[len(p.name):].strip():
+                    msg = None
+            except:
+                self._send_player_timeout_msg(p)
+            finally:
+                break
 
         self.current_player = None
         return msg
 
     def _send_msg_to_clients(self, msg):
-        for name in self.players.get_players():
+        if not self.is_alive():
+            return
+
+        def send_msg(p):
+            write(p.socket, msg, True)
+        self.players.apply(send_msg)
+
+        '''for name in self.players.get_players():
             p = self.players[name]
             if p is not None:
-                write(p.socket, msg, True)
+                write(p.socket, msg, True)'''
 
     def _send_player_timeout_msg(self, p):
-        pass
+        self._send_msg_to_clients(f"Player '{p.name} time out.'")
 
     def _game_move(self, gameobj, action):
         gameobj.move(action)
