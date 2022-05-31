@@ -81,7 +81,7 @@ class Group(threading.Thread):
     def game(self):
         # game 和其他函数由不同线程执行，考虑下self.players操作的线程安全
         names = list(self.players.get_players())
-        random.shuffle(names)
+        # random.shuffle(names)
         self.current_player = None
         try:
             gameobj = self._init_game(names)
@@ -92,41 +92,44 @@ class Group(threading.Thread):
 
         self._send_msg_to_clients(f'gstart {self.Game.__name__}')
         self._send_board_to_clients(gameobj)
+        self._send_msg_to_clients(f"Players: {gameobj.get_players()}")
         self._send_actions_to_clients(gameobj)
         round_n = 0
         while True:
-            if len(self.players) < self.MinN:
-                # 发送中途结束消息
-                log(f"group {self.gid} game 中途结束")
-                self._send_msg_to_clients('gend Not enough players, game over.')
-                return
+            # for i, n in enumerate(gameobj.get_players()):
+
+            n = gameobj.next_player()  # 改为game内部定义玩家顺序
+            p = self[n]
+            if p is None:  # 中途有玩家退出
+                gameobj.quit(n)
+                if len(gameobj.get_players()) < self.MinN:
+                    # 发送中途结束消息
+                    log(f"group {self.gid} game 中途结束")
+                    self._send_msg_to_clients('gend Not enough players, game over.')
+                    return
+                continue
             round_n += 1
             self._send_msg_to_clients(f'round {round_n}')
-            for i, n in enumerate(gameobj.get_players()):
-                p = self[n]
-                if p is None:  # 中途有玩家退出
-                    gameobj.quit(n)
-                    continue
-                # timout = 60
-                action = self._read_action(p)
-                if action is None:  # 超时或当前玩家退出
-                    self._send_board_to_clients(gameobj)
-                    continue
-                log(f" action: [{action}]", p.name)
-                self._send_msg_to_clients(f"Player {action}")
-                try:
-                    self._game_move(gameobj, action)
-                    self._send_board_to_clients(gameobj)
-                    if self._game_end(gameobj):
-                        self._send_end_info_to_clients(gameobj)
-                        return
-                except Warning as e:  # 单个玩家的action有问题，不影响游戏
-                    # 2022/05/19 client判断action后再发送到server，这里基本不会走进来
-                    # write(p.socket, str(e), True)
-                    self._send_msg_to_clients(str(e))
-                except Exception as e:
-                    self._send_msg_to_clients(f'gend Game Error, [{repr(e)}].\nGame Over')
+            # timout = 60
+            action = self._read_action(p)
+            if action is None:  # 超时或当前玩家退出
+                self._send_board_to_clients(gameobj)
+                continue
+            log(f" action: [{action}]", p.name)
+            self._send_msg_to_clients(f"Player {action}")
+            try:
+                self._game_move(gameobj, action)
+                self._send_board_to_clients(gameobj)
+                if self._game_end(gameobj):
+                    self._send_end_info_to_clients(gameobj)
                     return
+            except Warning as e:  # 单个玩家的action有问题，不影响游戏
+                # 2022/05/19 client判断action后再发送到server，这里基本不会走进来
+                # write(p.socket, str(e), True)
+                self._send_msg_to_clients(str(e))
+            except Exception as e:
+                self._send_msg_to_clients(f'gend Game Error, [{repr(e)}].\nGame Over')
+                return
         # self.queue = None
 
     def _send_actions_to_clients(self, gameobj):
@@ -222,7 +225,7 @@ class Group(threading.Thread):
         return gameobj
 
     def _send_board_to_clients(self, gameobj):
-        msg = gameobj.info_on_board()
+        msg = gameobj.state()
         log(f"send info on board: [{msg}]")
         self._send_msg_to_clients('board ' + msg)
 

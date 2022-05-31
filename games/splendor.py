@@ -418,7 +418,7 @@ class Splendor(Game):
                 cards.append(card_type(line))
         return cards
 
-    def update_board(self, info):  # 更新on board的信息，给client 打印
+    def set_state(self, info):  # 更新on board的信息，给client 打印
         info_all = json.loads(info)
         self.noble_cards_on_board.clear()
         for v in info_all[0]:
@@ -436,7 +436,7 @@ class Splendor(Game):
         for k in self.players:
             self.players[k] = Player(self.players[k])
 
-    def info_on_board(self):
+    def state(self):
         # noble_cards, cards3, cards2, cards1, coins, players
         info_all = [self.noble_cards_on_board,
                     self.cards_on_board,
@@ -567,13 +567,13 @@ if __name__ == '__main__':
     for i in range(1):
         board.show()
         print('******{}******'.format(i))
-        msg = board.info_on_board()
+        msg = board.state()
         print(len(msg))
         print(msg)
 
-        board.update_board(msg)
+        board.set_state(msg)
 
-        msg = board.info_on_board()
+        msg = board.state()
         print(len(msg))
         print(msg)
 

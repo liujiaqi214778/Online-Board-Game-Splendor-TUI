@@ -1,5 +1,6 @@
 # 2022/5/10  21:54  liujiaqi
 from utils import actionregister
+import random
 
 
 class Game(actionregister.ActionRegister):
@@ -8,12 +9,17 @@ class Game(actionregister.ActionRegister):
     raise Warning 前应保持 action 前的状态，即 action 错误不应改变 game 的属性
     '''
 
-    def __init__(self, players, ptype=None):
+    def __init__(self, players, ptype=None, shuffle=False):
         super(Game, self).__init__()
         if not isinstance(players, tuple) and not isinstance(players, list):
-            raise ValueError("Players should be a tuple or a list.")
+            raise TypeError("Players should be a tuple or a list.")
         if ptype is not None and not isinstance(ptype, type):
             raise TypeError("Player type is not a class type.")
+        '''if len(players) == 0:
+            raise ValueError(f"class {type(self).__name__}: No player.")'''
+        if shuffle:
+            players = list(players)
+            random.shuffle(players)
         self.players = {}
         for p in players:
             if ptype is not None:
@@ -38,7 +44,7 @@ class Game(actionregister.ActionRegister):
             return
         info = action.split()
         if len(info) < 2:
-            raise Warning(f'Warning: game action has no player name.')  # runtimeerror 要退出游戏， ValueError 为action 错误可继续move
+            raise Warning(f'Warning: game action has no player name.')
         name = info[0]
         if name not in self.players:
             raise Warning(f'Player [{name}] is not in this game.')
@@ -66,13 +72,24 @@ class Game(actionregister.ActionRegister):
     def get_players(self):
         return tuple(self.players.keys())
 
+    def next_player(self):
+        if '_pgen' not in self.__dict__:
+            self._pgen = self._nextp_generator()  # 生成器
+        return next(self._pgen)  # 这里得到的是下面 yield 出来的 n
+
+    def _nextp_generator(self):
+        while True:
+            # 遍历dict时如果有其他线程添加/删除元素则会 RuntimeError, 转换成tuple避免此问题
+            for n in tuple(self.players.keys()):
+                yield n  # 函数执行中断，保存协程上下文并返回n
+
     def load(self):
         raise NotImplementedError
 
-    def update_board(self, info):
+    def set_state(self, state):
         raise NotImplementedError
 
-    def info_on_board(self):
+    def state(self):
         raise NotImplementedError
 
     def show(self):

@@ -134,7 +134,7 @@ class Lobby(actionregister.ActionRegister):
 
             if msg.startswith('board'):
                 try:
-                    gameobj.update_board(msg[5:])
+                    gameobj.set_state(msg[5:])
                 except:
                     print(f'update_board error, json:\n {msg[5:]}')
                     return
@@ -160,12 +160,12 @@ class Lobby(actionregister.ActionRegister):
 
     def joingroup(self, *args):
         if len(args) == 0:
-            raise ValueError('There is no group number behind [join].')
+            raise Warning('There is no group number behind [join].')
         # server 一个group -> 一个game -> 多个user
         try:
             gid = int(args[0])
         except:
-            raise ValueError('Table id should be a number.')
+            raise Warning('Table id should be a number.')
         write(self.socket, f"join {gid}")
         msg = read()
         if msg == 'close':
