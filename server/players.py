@@ -52,7 +52,8 @@ class Players(ReadersWriters):
     def apply_while_true(self, func):
         for p in self.players.values():
             if not func(p):
-                return
+                return False
+        return True
 
     @ReadersWriters.reader
     def get_players(self):

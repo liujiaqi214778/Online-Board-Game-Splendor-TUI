@@ -1,6 +1,7 @@
 # 2022/5/16  15:23  liujiaqi
 
-class SimpleTransform:
+
+class SimpleParser:
     @staticmethod
     def loads(s):
         if isinstance(s, str):
@@ -10,30 +11,20 @@ class SimpleTransform:
         return key, args, {}
 
     @staticmethod
-    def dumps(key, *args, **kwargs):
+    def dumps(obj):
+        assert isinstance(obj, tuple) and len(obj) == 3
+        key = obj[0]
+        args = obj[1]
         return ' '.join((key, *args))
 
 
-class StructTransform:
-    def __init__(self, parser):
-        self.parser = parser  # json, pickle ...
-
-    def loads(self, s):
-        obj = self.parser.loads(s)
-        key = obj['key']
-        args = tuple(obj['args'])
-        kwargs = dict(obj['kwargs'])  # 如果不是dict请实现 keys() 和 __getitem__()
-        return key, args, kwargs
-
-    def dumps(self, key, *args, **kwargs):
-        return self.parser.dumps({'key': key, 'args': args, 'kwargs': kwargs})
-
-
 class ActionRegister:
-    def __init__(self, transform=SimpleTransform):
+    def __init__(self, parser=None):
         self._actions = {}
         self._desc = []
-        self._transform = transform
+        if parser is None:
+            parser = SimpleParser
+        self._parser = parser  # json, pickle ... implement loads and dumps
 
     def register_action(self, item, func, action_desc=None):
         if not callable(func):
@@ -85,13 +76,25 @@ class ActionRegister:
             raise ValueError(f'class {type(self).__name__}: action [{ins}] not registered.')
         return ins, args, {}'''
 
-    def parse_action(self, action, transform=None):
-        if transform is None:
-            transform = self._transform
-        key, args, kwargs = transform.loads(action)
+    def parse_action(self, action, parser=None):
+        if parser is None:
+            parser = self._parser
+        key, args, kwargs = parser.loads(action)
         if key not in self._actions:
             raise Warning(f'{type(self).__name__}: action [{key}] not registered.')
         return key, args, kwargs
+
+    def loads(self, action):
+        """
+        :return: parse action to key, *args, **kwargs
+        """
+        return self._parser.loads(action)  # return key, *args, **kwargs
+
+    def dumps(self, key, *args, **kwargs):
+        """
+        Format the parameters
+        """
+        return self._parser.dumps((key, args, kwargs))
 
     def __str__(self):
         return self.all_actions()

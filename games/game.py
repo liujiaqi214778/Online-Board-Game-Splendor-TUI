@@ -31,6 +31,7 @@ class Game(actionregister.ActionRegister):
     def max_player_n(cls):
         raise NotImplementedError
 
+    # 这两个函数合成一个, 判断玩家数是否能开始游戏
     @classmethod
     def min_player_n(cls):
         raise NotImplementedError
@@ -78,6 +79,13 @@ class Game(actionregister.ActionRegister):
         return next(self._pgen)  # 这里得到的是下面 yield 出来的 n
 
     def _nextp_generator(self):
+        """
+        It is not a real function while is has a key word 'yield'.
+        This 'function' return a generator.
+        A generator is also a iterator.
+        Generator and coroutine are actually the same thing, but they have different abstract meanings and syntaxes
+        Coroutine uses async-await syntax
+        """
         while True:
             # 遍历dict时如果有其他线程添加/删除元素则会 RuntimeError, 转换成tuple避免此问题
             for n in tuple(self.players.keys()):

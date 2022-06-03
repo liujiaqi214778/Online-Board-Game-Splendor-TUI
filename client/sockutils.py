@@ -64,6 +64,7 @@ class ActiveMsgReciever:
 
 active_msg_reciever = ActiveMsgReciever(active_msg_q)
 
+
 # Returns wether background thread is dead and IO buffer is empty.
 def isDead():
     return q.empty() and isdead

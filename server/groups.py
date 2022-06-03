@@ -52,19 +52,14 @@ class Group(threading.Thread):
     '''def isfull(self):
         return len(self.players) == self.MaxN'''
 
-    def ifstart(self):
+    def ifstart(self):  # 去掉这个判断
         num = len(self.players)
         if num < self.MinN:
             return False
-        for n in self.players.get_players():
-            p = self.players[n]
-            if p is None:  # 遍历的时候有player退出了，虽然可能性很低
-                num = num - 1
-                if num < self.MinN:
-                    return False
-            elif p.stat != 'r':
-                return False
-        return True
+
+        def is_ready(p):
+            return p.stat == 'r'
+        return self.players.apply_while_true(is_ready)
 
     def run(self) -> None:
         self.game()
@@ -97,12 +92,11 @@ class Group(threading.Thread):
         round_n = 0
         while True:
             # for i, n in enumerate(gameobj.get_players()):
-
             n = gameobj.next_player()  # 改为game内部定义玩家顺序
             p = self[n]
             if p is None:  # 中途有玩家退出
                 gameobj.quit(n)
-                if len(gameobj.get_players()) < self.MinN:
+                if len(gameobj.get_players()) < self.MinN:  # 改为其他方式判断
                     # 发送中途结束消息
                     log(f"group {self.gid} game 中途结束")
                     self._send_msg_to_clients('gend Not enough players, game over.')
@@ -248,7 +242,7 @@ class Groups:
 
     def create(self, name):
         if len(self.groups) == self.maxn:
-            raise ValueError(f"Max groups number is {self.maxn}.")
+            raise Warning(f"Max groups number is {self.maxn}.")
         self.groups.append(Group(len(self.groups), GAME_REGISTRY.get(name)))
 
     def reset(self):
