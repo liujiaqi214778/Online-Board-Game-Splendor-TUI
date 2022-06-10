@@ -12,7 +12,7 @@ class SimpleParser:
 
     @staticmethod
     def dumps(obj):
-        assert isinstance(obj, tuple) and len(obj) == 3
+        # assert isinstance(obj, tuple) and len(obj) == 3
         key = obj[0]
         args = obj[1]
         return ' '.join((key, *args))

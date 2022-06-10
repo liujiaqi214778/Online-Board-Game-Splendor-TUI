@@ -1,12 +1,11 @@
 # 2022/5/3  20:56  liujiaqi
 """
-This file is a part of My-PyChess application.
+This file is a part of My-Board-Game application.
 To run the online server, run this script.
 
-For more information, see onlinehowto.txt
 
 IMPORTANT NOTE:
-    Server.py needs atleast Python v3.6 to work.
+    server.py needs atleast Python v3.7 to work.
 """
 import socket
 import threading

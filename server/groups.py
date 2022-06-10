@@ -28,25 +28,21 @@ class Group(threading.Thread):
         self.current_player = None
 
     def __getitem__(self, item):
-        '''if item in self.players:
-            return self.players[item]
-        return None'''
         return self.players[item]
 
     def push(self, p):
-        if self.players.pushp(p):
-            p.gid = self.gid
+        def setstat(pp):
+            pp.gid = self.gid
             p.stat = 'b'  # 进组自动busy
-            return True
-        return False
+        return self.players.pushp(p, setstat)
 
     def pop(self, name):
-        p = self.players.pop(name)
-        if p is not None:
-            p.gid = None
+        def setstat(pp):
+            pp.gid = None
             p.stat = 'a'  # 退组自动active
-            if name == self.current_player:  # 玩家用其他方式退出了group
-                self.queue.put(p.name)  # 防止线程继续阻塞
+        p = self.players.pop(name, setstat)
+        if p is not None and name == self.current_player:  # 玩家用其他方式退出了group
+            self.queue.put(p.name)  # 防止线程继续阻塞
         return p
 
     '''def isfull(self):

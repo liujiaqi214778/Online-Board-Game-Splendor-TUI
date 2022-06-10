@@ -38,11 +38,22 @@ class ServerManager:
 
     def report(self):
         log(f"{len(self.players)} players are online right now,")
-        log(f"{len(self.players) - self.players.busyn()} are active.")
+
+        log(f"{len(self.players) - self.busyn()} are active.")
         log(f"{self.total} connections attempted, {self.totalsuccess} were successful")
         log(f"Server is running {threading.active_count()} threads.")
         log(f"Time elapsed since last reboot: {self.getTime()}")
         self.show_players()
+
+    def busyn(self):
+        self._busycnt = 0
+
+        def isbusy(p):
+            if p.stat != 'a':
+                self._busycnt += 1
+
+        self.players.apply(isbusy)
+        return self._busycnt
 
     def kick(self, k):
         p = self.players[k]
@@ -59,13 +70,10 @@ class ServerManager:
         def kfunc(p):
             write(p.socket, "close")
         self.players.apply(kfunc)
-        '''for n in self.players.get_players():
-            p = self.players[n]
-            if p is not None:
-                write(p.socket, "close")'''
+
         self.reset()
 
-    def kickdisconnectedplayer(self):
+    def kickdisconnectedplayer(self):  # 每10秒检查一次，清除断开连接的用户
         while True:
             time.sleep(10)
             for n in self.players.get_players():
@@ -101,13 +109,9 @@ class ServerManager:
                         pass
 
     def push(self, name, sock):
-        if not name or len(name) > 15:
+        if not name or len(name) > 15 or ' ' in name:  # 名字不能带空格
             return False
-        p = self.players[name]
-        if p is not None:
-            return False
-        self.players.push(name, sock)
-        return True
+        return self.players.push(name, sock)
 
     def getTime(self):
         sec = round(time.perf_counter() - self.START_TIME)

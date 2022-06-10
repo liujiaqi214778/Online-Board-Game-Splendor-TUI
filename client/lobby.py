@@ -50,7 +50,7 @@ class Lobby(actionregister.ActionRegister):
                     return -1
 
             msg = active_msg_reciever.read()
-            if msg is not None:
+            if msg:
                 if msg == "close":
                     return -1
                 if msg.startswith('gstart'):

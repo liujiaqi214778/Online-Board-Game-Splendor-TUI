@@ -1,4 +1,6 @@
 # 2022/5/12  0:36  liujiaqi
+import socket
+from .socketutils import read, write
 from utils.readerswriters import ReadersWriters
 
 
@@ -7,7 +9,7 @@ class PlayerInfo:
           'b': 'Busy',
           'r': 'Ready'}
 
-    def __init__(self, sock, name, gid=None):
+    def __init__(self, sock: socket.socket, name, gid=None):
         self.socket = sock
         self.name = name
         self.gid = gid
@@ -18,6 +20,12 @@ class PlayerInfo:
         if self.stat not in self.st:
             return 'UnKown'
         return self.st[self.stat]
+
+    def write(self, msg):
+        pass
+
+    def read(self):
+        pass
 
 
 class Players(ReadersWriters):
@@ -30,18 +38,25 @@ class Players(ReadersWriters):
     def push(self, name, sock):
         if not self.isfull() and name not in self.players:
             self.players[name] = PlayerInfo(sock, name)
-
-    @ReadersWriters.writer
-    def pushp(self, p):
-        assert isinstance(p, PlayerInfo)
-        if not self.isfull() and p.name not in self.players:
-            self.players[p.name] = p
             return True
         return False
 
     @ReadersWriters.writer
-    def pop(self, name):
-        return self.players.pop(name, None)
+    def pushp(self, p, callback=None):
+        assert isinstance(p, PlayerInfo)
+        if not self.isfull() and p.name not in self.players:
+            self.players[p.name] = p
+            if callback is not None:
+                callback(p)
+            return True
+        return False
+
+    @ReadersWriters.writer
+    def pop(self, name, callback=None):
+        p = self.players.pop(name, None)
+        if p is not None and callback is not None:
+            callback(p)
+        return p
 
     @ReadersWriters.reader
     def apply(self, func):  # 线程安全地处理元素
@@ -61,9 +76,7 @@ class Players(ReadersWriters):
 
     @ReadersWriters.reader
     def __getitem__(self, item):
-        if item in self.players:
-            return self.players[item]
-        return None
+        return self.players.get(item, None)
 
     def isfull(self):
         return len(self.players) == self.maxn
@@ -75,28 +88,15 @@ class Players(ReadersWriters):
             return False
         return p.stat != 'a'
 
-    @ReadersWriters.reader
-    def busyn(self):
-        cnt = 0
-        for p in self.players.values():
-            if p.stat != 'a':
-                cnt += 1
-        return cnt
-
     @ReadersWriters.writer
     def reset(self):
         # self.__init__(self.maxn)
         self.players = {}
 
-    '''def mkbusy(self, name):
-        self._set_stat(name, 'b')
-
-    def rmbusy(self, name):
-        self._set_stat(name, 'a')
-
-    def _set_stat(self, name, stat):
+    @ReadersWriters.writer
+    def set_stat(self, name, stat):
         if name in self.players:
-            self.players[name].stat = stat'''
+            self.players[name].stat = stat
 
     def __len__(self):
         return len(self.players)

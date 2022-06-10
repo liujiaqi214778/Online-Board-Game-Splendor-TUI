@@ -368,7 +368,7 @@ class Splendor(Game):
 
     def load(self):
         # noble_cards = cards_3 = cards_2 = cards_1 = []  # *****
-        fpath = os.path.join('gamefiles', 'BSSR')
+        fpath = os.path.join('gamefiles', 'splendor')
         if not os.path.isdir(fpath):
             raise ValueError(f"Game file path [{fpath}] is not exist.")
 
