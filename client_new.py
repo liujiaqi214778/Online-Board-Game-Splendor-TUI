@@ -1,9 +1,7 @@
-# 2022/5/3  19:30  liujiaqi
+# 2022/6/14  10:48  liujiaqi
 import threading
 import socket
 from client.sockutils import read, write, bgThread, flush
-from client.lobby import Lobby
-from utils.event import event
 
 VERSION = "v1.0"
 PORT = 26103
@@ -42,6 +40,7 @@ def main(addr, uname, ipv6=False):
 
     ret = 1
     msg = read()
+    print(msg)
     if msg == "errVer":
         print(ERR[2])
 
@@ -55,9 +54,16 @@ def main(addr, uname, ipv6=False):
         print(ERR[5])
 
     elif msg.startswith("succ"):
-        event.start()
-        ret = Lobby(sock, uname)()
-        event.end()
+        # event.start()
+        # ret = Lobby(sock, uname)()
+        while True:
+            msg = input("input: ")
+            write(sock, msg)
+            if msg == 'exit' or msg == 'quit':
+                break
+            msg = read()
+            print(f"read: {msg}")
+        # event.end()
 
     else:
         print(msg)

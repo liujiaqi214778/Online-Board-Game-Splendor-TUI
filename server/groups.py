@@ -31,18 +31,19 @@ class Group(threading.Thread):
         return self.players[item]
 
     def push(self, p):
-        def setstat(pp):
-            pp.gid = self.gid
+        if self.players.pushp(p):
+            p.gid = self.gid
             p.stat = 'b'  # 进组自动busy
-        return self.players.pushp(p, setstat)
+            return True
+        return False
 
     def pop(self, name):
-        def setstat(pp):
-            pp.gid = None
+        p = self.players.pop(name)
+        if p is not None:
+            p.gid = None
             p.stat = 'a'  # 退组自动active
-        p = self.players.pop(name, setstat)
-        if p is not None and name == self.current_player:  # 玩家用其他方式退出了group
-            self.queue.put(p.name)  # 防止线程继续阻塞
+            if name == self.current_player:  # 玩家用其他方式退出了group
+                self.queue.put(p.name)  # 防止线程继续阻塞
         return p
 
     '''def isfull(self):

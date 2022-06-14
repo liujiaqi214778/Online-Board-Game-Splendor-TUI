@@ -42,21 +42,16 @@ class Players(ReadersWriters):
         return False
 
     @ReadersWriters.writer
-    def pushp(self, p, callback=None):
+    def pushp(self, p):
         assert isinstance(p, PlayerInfo)
         if not self.isfull() and p.name not in self.players:
             self.players[p.name] = p
-            if callback is not None:
-                callback(p)
             return True
         return False
 
     @ReadersWriters.writer
-    def pop(self, name, callback=None):
-        p = self.players.pop(name, None)
-        if p is not None and callback is not None:
-            callback(p)
-        return p
+    def pop(self, name):
+        return self.players.pop(name, None)
 
     @ReadersWriters.reader
     def apply(self, func):  # 线程安全地处理元素
