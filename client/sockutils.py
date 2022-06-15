@@ -1,11 +1,6 @@
-# 2022/5/3  19:43  liujiaqi
-'''
-This file is a part of My-PyChess application.
-In this file, we define a few utility funtions and wrappers for socket related
-stuff.
-'''
+# 2022/6/14  10:44  liujiaqi
 import queue
-import socket
+from utils.socketutils import encode_msg
 
 q = queue.Queue()
 active_msg_q = queue.Queue()  # server 主动发来的消息
@@ -19,31 +14,22 @@ def bgThread(sock):
     isdead = False
     while True:
         try:
-            msg = sock.recv(4096).decode("utf-8").strip()
+            msg = sock.recv(4)  # 4字节消息头
+            msg_type = msg[0]
+            msg_len = int.from_bytes(msg[1:4], byteorder='big')
+            if not msg_len:
+                continue
+            msg = sock.recv(msg_len).decode("utf-8").strip()
+            if msg == "close":
+                break
+            if not msg_type:
+                q.put(msg)
+            else:
+                active_msg_q.put(msg)
+
         except Exception as e:
             print(repr(e))
             break
-        if not msg:
-            continue
-        if msg.startswith('@'):  # prefix of server's active message
-            '''# 只让 active meesage 有可能超过128
-            if not msg.endswith('@'):
-                try:
-                    msg += sock.recv(4096).decode("utf-8").strip()
-                except Exception as e:
-                    print(repr(e))
-                    break'''
-            if msg[-1] != '@':
-                print(f'Error occur when receiving msg: [{msg}]')
-                break
-            msg = msg[1:-1]
-            if not msg:
-                continue
-            active_msg_q.put(msg)
-        elif msg == "close":
-            break
-        elif msg != "........":
-            q.put(msg)
     isdead = True
 
 
@@ -97,9 +83,8 @@ def flush():
 # exception if message could not be sent
 def write(sock, msg):
     if msg:
-        buffedmsg = msg + (" " * (4096 - len(msg)))
         try:
-            sock.sendall(buffedmsg.encode("utf-8"))
+            sock.sendall(encode_msg(msg))
         except:
             pass
 
@@ -121,3 +106,4 @@ def getmsgall(sock, msg='pStat'):  # 即将弃用
     elif msg != 'xxx':
         data.append(msg)
     return data
+

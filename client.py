@@ -1,12 +1,12 @@
-# 2022/5/3  19:30  liujiaqi
+# 2022/6/14  10:48  liujiaqi
 import threading
 import socket
-from client.sockutils import read, write, bgThread, flush
 from client.lobby import Lobby
+from client.sockutils import read, write, bgThread, flush
 from utils.event import event
 
-VERSION = "v1.0"
-PORT = 26103
+VERSION = "v2.0"
+PORT = 26104
 ERR = (
         "Attempting to connect to server..",
         "[ERR 1] Couldn't find the server..",
@@ -42,6 +42,7 @@ def main(addr, uname, ipv6=False):
 
     ret = 1
     msg = read()
+    # print(msg)
     if msg == "errVer":
         print(ERR[2])
 
@@ -57,6 +58,13 @@ def main(addr, uname, ipv6=False):
     elif msg.startswith("succ"):
         event.start()
         ret = Lobby(sock, uname)()
+        """while True:
+            msg = input("input: ")
+            write(sock, msg)
+            if msg == 'exit' or msg == 'quit':
+                break
+            msg = read()
+            print(f"read: {msg}")"""
         event.end()
 
     else:
@@ -79,6 +87,6 @@ if __name__ == '__main__':
     name = input("Please enter your username: ").strip()
     if ' ' in name:
         name = name.replace(' ', '_')
-    ip = '172.16.164.11'
+    ip = '192.168.31.58'
     # ip = '172.30.130.36'
     main(ip, name)

@@ -2,7 +2,7 @@
 import time
 from games import GAME_REGISTRY
 
-from .sockutils import *
+from .sockutils import write, read, getmsgall, isDead, active_msg_reciever
 from utils.utils import iterprint, ClearCLI
 from utils import event, actionregister
 

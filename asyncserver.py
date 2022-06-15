@@ -7,24 +7,23 @@ To run the online server, run this script.
 IMPORTANT NOTE:
     server.py needs atleast Python v3.7 to work.
 """
-import socket
 import asyncio
 import sys
 import threading
 import time
 
 from server.log import log, LOG, logThread
-from server.socketutils import write, read, getIp
-from server.cmdreceiver import CmdReceiver
+from server.asyncreceiver import AsyncReceiver
 from server.manager import ServerManager
+from utils.socketutils import AsyncReader, AsyncWriter, getIp
 
 # These are constants that can be modified by users. Default settings
 # are given. Do not change if you do not know what you are doing.
 IPV6 = False
 
 # Define other constants
-VERSION = "v1.0"
-PORT = 26103
+VERSION = "v2.0"
+PORT = 26104
 
 
 # Initialise a few global variables
@@ -45,12 +44,12 @@ def adminThread():
 
         elif msg == "mypublicip":
             log("Determining public IP, please wait....")
-            PUBIP = getIp(public=True)
-            if PUBIP == "127.0.0.1":
+            pubip = getIp(public=True)
+            if pubip == "127.0.0.1":
                 log("An error occurred while determining IP")
 
             else:
-                log(f"This machine has a public IP address {PUBIP}")
+                log(f"This machine has a public IP address {pubip}")
 
         elif msg == "lock":
             if lock:
@@ -90,64 +89,52 @@ def adminThread():
             log(f"Invalid command entered ('{msg}').")
 
 
-def encode_msg(msg: str):
-    return msg.encode("utf-8")
-
-
-async def handle_echo(reader, writer):
+async def handle_echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
     global glbManager
+    writer = AsyncWriter(writer)
+    reader = AsyncReader(reader)
     name = None
     log("New client is attempting to connect.")
     glbManager.total += 1
     try:
-        data = await reader.readline()
-        msg = data.decode()[:-1]
+        msg = await reader.read()
         log(msg)
         if msg != "PyGame":
             log("Client sent invalid header, closing connection.")
-            writer.write(encode_msg("errVer"))
+            await writer.awrite("errVer")
         else:
-            data = await reader.readline()
-            msg = data.decode()[:-1]
+            msg = await reader.read()
             if msg != VERSION:
                 log("Client sent invalid header, closing connection.")
-                writer.write(encode_msg("errVer"))
+                await writer.awrite("errVer")
             elif glbManager.players.isfull():
                 log("Server is busy, closing new connections.")
-                writer.write(encode_msg("errBusy"))
+                await writer.awrite("errBusy")
             elif lock:
                 log("SERVER: Server is locked, closing connection.")
-                writer.write(encode_msg("errLock"))
+                await writer.awrite("errLock")
             else:
-                data = await reader.readline()
-                name = data.decode()[:-1]
-                if not glbManager.push(name, 'sock'):  # test
+                name = await reader.read()
+                if not glbManager.push(name, writer):  # test
                     log(f"Client sent invalid user name ({name}), closing connection.")
-                    writer.write(encode_msg("errName"))
+                    await writer.awrite("errName")
                 else:
                     glbManager.totalsuccess += 1
-                    # key = genKey()
                     log(f"Connection Successful, user name - {name}")
 
-                    writer.write(encode_msg("succ"))
-                    # CmdReceiver(sock, name, glbManager)()
-                    while True:
-                        data = await reader.readline()
-                        msg = data.decode()[:-1]
+                    await writer.awrite("succ")
+                    await AsyncReceiver(reader, writer, name, glbManager)()
+                    # await asyncio.to_thread(write_forever, writer)
+                    # threading.Thread(target=write_forever, args=(writer,)).start()
+                    """while True:
+                        msg = await reader.read()
                         if msg == 'exit' or msg == 'quit':
                             break
                         log(f": {msg}", name)
-                        writer.write(encode_msg("next"))
-                        await writer.drain()
+                        await writer.awrite("next")"""
 
-                    writer.write(encode_msg("close"))
+                    await writer.awrite("close")
                     log(f"Player {name} has Quit")
-
-                    try:
-                        glbManager.clearplayerinfo(name)
-                    except:
-                        pass
-        await writer.drain()
         writer.close()
     except Exception as e:
         log(str(e))
@@ -161,14 +148,14 @@ async def handle_echo(reader, writer):
 
 
 async def main():
-    IP = getIp(public=False)
-    if IP == "127.0.0.1":
+    ipaddr = getIp(public=False)
+    if ipaddr == "127.0.0.1":
         log("This machine does not appear to be connected to a network.")
         log("With this limitation, you can only serve the clients ")
         log("who are on THIS machine. Use IP address 127.0.0.1\n")
 
     else:
-        log(f"This machine has a local IP address - {IP}")
+        log(f"This machine has a local IP address - {ipaddr}")
         log("USE THIS IP IF THE CLIENT IS ON THE SAME NETWORK.")
 
     ip = '0.0.0.0'

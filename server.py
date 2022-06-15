@@ -1,17 +1,12 @@
 # 2022/5/3  20:56  liujiaqi
 """
-This file is a part of My-Board-Game application.
-To run the online server, run this script.
-
-
-IMPORTANT NOTE:
-    server.py needs atleast Python v3.7 to work.
+已弃用, 改用asyncserver
 """
 import socket
 import threading
 from server.log import log, LOG, logThread
-from server.socketutils import write, read, getIp
-from server.cmdreceiver import CmdReceiver
+from utils.socketutils import write, read, getIp
+from server.asyncreceiver import CmdReceiver
 from server.manager import ServerManager
 
 # These are constants that can be modified by users. Default settings

@@ -4,11 +4,9 @@ from games import GAME_REGISTRY
 # 2022/5/11  23:47  liujiaqi
 import threading
 import queue
-import random
 import time
 from games.game import Game
 from .log import log
-from .socketutils import write
 from .players import Players
 
 
@@ -148,7 +146,8 @@ class Group(threading.Thread):
         self._send_msg_to_clients(f"Current Player: {p.name}")
         # 改成每秒发送一次倒计时，超过60次则发送timeout
         self.current_player = p.name
-        write(p.socket, 'action', True)  # action后面加等待时间
+        # write(p.socket, 'action', True)  # action后面加等待时间
+        p.write('action')
         time.sleep(1)
         msg = None
         while True:
@@ -173,13 +172,9 @@ class Group(threading.Thread):
             return
 
         def send_msg(p):
-            write(p.socket, msg, True)
+            # write(p.socket, msg, True)
+            p.write(msg)
         self.players.apply(send_msg)
-
-        '''for name in self.players.get_players():
-            p = self.players[name]
-            if p is not None:
-                write(p.socket, msg, True)'''
 
     def _send_player_timeout_msg(self, p):
         self._send_msg_to_clients(f"Player '{p.name} time out.'")

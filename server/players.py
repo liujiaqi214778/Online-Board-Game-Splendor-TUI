@@ -1,6 +1,4 @@
 # 2022/5/12  0:36  liujiaqi
-import socket
-from .socketutils import read, write
 from utils.readerswriters import ReadersWriters
 
 
@@ -9,8 +7,8 @@ class PlayerInfo:
           'b': 'Busy',
           'r': 'Ready'}
 
-    def __init__(self, sock: socket.socket, name, gid=None):
-        self.socket = sock
+    def __init__(self, writer, name, gid=None):
+        self.writer = writer
         self.name = name
         self.gid = gid
         # a: active, b: busy, r: ready
@@ -21,11 +19,8 @@ class PlayerInfo:
             return 'UnKown'
         return self.st[self.stat]
 
-    def write(self, msg):
-        pass
-
-    def read(self):
-        pass
+    def write(self, msg, msg_type=1):
+        self.writer.write(msg, msg_type)
 
 
 class Players(ReadersWriters):
@@ -35,9 +30,9 @@ class Players(ReadersWriters):
         self.players = {}
 
     @ReadersWriters.writer
-    def push(self, name, sock):
+    def push(self, name, writer):
         if not self.isfull() and name not in self.players:
-            self.players[name] = PlayerInfo(sock, name)
+            self.players[name] = PlayerInfo(writer, name)
             return True
         return False
 
