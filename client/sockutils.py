@@ -15,6 +15,9 @@ def bgThread(sock):
     while True:
         try:
             msg = sock.recv(4)  # 4字节消息头
+            # server 中的 writer.close() 会导致这里的recv 收到一个 b''
+            if not msg:
+                break
             msg_type = msg[0]
             msg_len = int.from_bytes(msg[1:4], byteorder='big')
             if not msg_len:

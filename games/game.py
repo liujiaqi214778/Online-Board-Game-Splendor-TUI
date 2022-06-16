@@ -89,15 +89,18 @@ class Game(actionregister.ActionRegister):
         while True:
             # 遍历dict时如果有其他线程添加/删除元素则会 RuntimeError, 转换成tuple避免此问题
             for n in tuple(self.players.keys()):
-                yield n  # 函数执行中断，保存协程上下文并返回n
+                yield n  # 函数执行中断，保存上下文并返回n
 
     def load(self):
         raise NotImplementedError
 
-    def set_state(self, state):
+    def set_state(self, state, private_stat=None):
         raise NotImplementedError
 
     def state(self):
+        raise NotImplementedError
+
+    def private_state(self, name):
         raise NotImplementedError
 
     def show(self):

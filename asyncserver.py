@@ -27,66 +27,21 @@ PORT = 26104
 
 
 # Initialise a few global variables
-end = False
-lock = False
 glbManager = ServerManager()
 
 
 # This is a Thread that runs in background to collect user input commands
 def adminThread():
-    global end, lock, glbManager
+    global glbManager
+    glbManager.help()
     while True:
         msg = input().strip()
         log(msg, adminput=True)
-
-        if msg == "report":
-            glbManager.report()
-
-        elif msg == "mypublicip":
-            log("Determining public IP, please wait....")
-            pubip = getIp(public=True)
-            if pubip == "127.0.0.1":
-                log("An error occurred while determining IP")
-
-            else:
-                log(f"This machine has a public IP address {pubip}")
-
-        elif msg == "lock":
-            if lock:
-                log("Aldready in locked state")
-            else:
-                lock = True
-                log("Locked server, no one can join now.")
-
-        elif msg == "unlock":
-            if lock:
-                lock = False
-                log("Unlocked server, all can join now.")
-            else:
-                log("Aldready in unlocked state.")
-
-        elif msg.startswith("kick "):
-            for k in msg[5:].split():
-                glbManager.kick(k)
-
-        elif msg == "kickall":
-            glbManager.kickall()
-
-        elif msg == "quit" or msg == 'exit':
-            lock = True
-            glbManager.kickall()
-
-            log("Exiting application - Bye")
-            log(None)
-
-            end = True
-            time.sleep(3)
-            # 怎么关闭 asyncio.run() ?
-            # server.serve_forever() 后怎么cancel???
-            sys.exit()
-
-        else:
-            log(f"Invalid command entered ('{msg}').")
+        glbManager(msg)
+        '''try:
+            glbManager(msg)
+        except Exception as e:
+            log(str(e))'''
 
 
 async def handle_echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter):
@@ -110,7 +65,7 @@ async def handle_echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
             elif glbManager.players.isfull():
                 log("Server is busy, closing new connections.")
                 await writer.awrite("errBusy")
-            elif lock:
+            elif glbManager.is_locked():
                 log("SERVER: Server is locked, closing connection.")
                 await writer.awrite("errLock")
             else:
@@ -135,6 +90,8 @@ async def handle_echo(reader: asyncio.StreamReader, writer: asyncio.StreamWriter
 
                     await writer.awrite("close")
                     log(f"Player {name} has Quit")
+        # await asyncio.sleep(3)
+        # close会导致client的 sock.recv()返回一个空byte b''
         writer.close()
     except Exception as e:
         log(str(e))

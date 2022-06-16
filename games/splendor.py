@@ -418,7 +418,7 @@ class Splendor(Game):
                 cards.append(card_type(line))
         return cards
 
-    def set_state(self, info):  # 更新on board的信息，给client 打印
+    def set_state(self, info, private_stat=None):  # 更新on board的信息，给client 打印
         info_all = json.loads(info)
         self.noble_cards_on_board.clear()
         for v in info_all[0]:
@@ -444,12 +444,8 @@ class Splendor(Game):
                     self.players]
         return json_dumps(info_all)
 
-    '''def _info_1type_cards(self, cards):
-        info = ''
-        for card in cards:
-            info += str(card) + '|'
-        info.removesuffix('|')
-        return info'''
+    def private_state(self, name):
+        pass
 
     @staticmethod
     def write(msg):
